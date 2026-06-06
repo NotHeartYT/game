@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>trap shooting 2.0</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Trap Shooting Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght=400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body id="bodyTheme" class="theme-dark flex flex-col items-center justify-center min-h-screen p-2 md:p-4 select-none transition-colors duration-300 overflow-hidden touch-none">
+
+    <div id="hudWrapper" class="w-full max-w-[1200px] flex justify-between items-center mb-2 px-2 z-30 pointer-events-none hidden">
+        <div class="flex gap-1.5 md:gap-3">
+            <div id="scoreDisplay" class="hud-card text-slate-100">
+                <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Score</span>
+                <span class="text-sm md:text-xl font-bold tracking-tight">0</span>
+            </div>
+            <div id="livesDisplay" class="hud-card text-slate-100">
+                <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Lives</span>
+                <span class="text-sm md:text-xl font-bold tracking-tight">3</span>
+            </div>
+            <div id="timerDisplay" class="hud-card text-slate-100 hidden">
+                <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Time Left</span>
+                <span class="text-sm md:text-xl font-bold tracking-tight">60s</span>
+            </div>
+        </div>
+        
+        <button id="pauseButton" class="action-btn pointer-events-auto bg-slate-900/80 backdrop-blur-md border border-white/10 hover:bg-slate-800 text-slate-200 px-2 py-1 md:px-3 md:py-1.5 font-mono text-[10px] md:text-sm font-bold rounded-lg md:rounded-xl shadow-lg tracking-widest">
+            [ || ]
+        </button>
+    </div>
+
+    <div id="mainContainer" class="game-container relative rounded-2xl md:rounded-3xl shadow-2xl flex flex-col items-center justify-center overflow-hidden w-full">
+        
+        <canvas id="gameCanvas" class="shadow-inner absolute top-0 left-0 w-full h-full"></canvas>
+
+        <div id="gameOverlay" class="game-overlay absolute inset-0 flex flex-col justify-center items-center p-3 md:p-8 text-center transition-all duration-300 overflow-y-auto">
+            <h1 id="overlayMessage" class="main-heading-text text-2xl sm:text-3xl md:text-5xl font-black tracking-tight mb-1 md:mb-2 bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-200">
+                TRAP SHOOTING PRO
+            </h1>
+            <p id="overlaySubtext" class="description-text text-[11px] md:text-sm mb-3 md:mb-6 max-w-xs md:max-w-sm">Precision target training. Master the arc.</p>
+            
+            <div id="modeSelection" class="flex flex-col gap-2 w-full max-w-[240px] md:max-w-xs z-10">
+                <button id="livesModeButton" class="action-btn bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2 md:py-3 px-4 rounded-xl shadow-lg text-xs md:text-base">
+                    Play Lives Mode
+                </button>
+                <button id="timedModeButton" class="action-btn bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold py-2 md:py-3 px-4 rounded-xl shadow-lg text-xs md:text-base">
+                    Play Timed Mode
+                </button>
+                <div class="flex gap-2">
+                    <button id="settingsButton" class="menu-btn flex-1 font-semibold py-1.5 md:py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] md:text-sm">
+                        Settings
+                    </button>
+                    <button id="openGuideButton" class="menu-btn flex-1 font-semibold py-1.5 md:py-2.5 px-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-[11px] md:text-sm">
+                        <i class="fa-solid fa-book-open mr-1"></i>Field Guide
+                    </button>
+                </div>
+            </div>
+
+            <div id="gameEndButtons" class="hidden w-full max-w-[240px] md:max-w-xs z-10">
+                <button id="quitToMenuFromEnd" class="w-full bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-500 hover:to-emerald-400 text-white font-bold py-2 md:py-3 px-4 rounded-xl shadow-lg transition-transform hover:scale-105 duration-200 text-xs md:text-base">
+                    Return to Main Menu
+                </button>
+            </div>
+
+            <div id="tutorialGuide" class="mt-4 md:mt-8 pt-3 md:pt-6 border-t border-white/10 grid grid-cols-2 gap-3 max-w-sm text-left text-[9px] md:text-xs">
+                <div>
+                    <h4 class="font-bold text-slate-400 mb-0.5 uppercase tracking-tighter">🎮 Controls</h4>
+                    <p class="text-slate-500 leading-normal">Aim with finger/mouse. Tap/Click to fire.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-400 mb-0.5 uppercase tracking-tighter">🎯 Objective</h4>
+                    <p class="text-slate-500 leading-normal">Destroy clays before they hit the ground.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="guideOverlay" class="game-overlay absolute inset-0 hidden flex flex-col p-4 md:p-8 overflow-y-auto">
+            <div class="flex items-center justify-between mb-3 md:mb-6 border-b border-white/10 pb-2 md:pb-4">
+                <div>
+                    <h2 class="text-lg md:text-2xl font-black tracking-tight main-heading-text">TACTICAL BRIEFING</h2>
+                    <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">Master the Power-Up Matrix</p>
+                </div>
+                <button id="closeGuideButton" class="bg-white/5 hover:bg-white/10 p-1.5 md:p-2 rounded-full transition-all">
+                    <i class="fa-solid fa-xmark text-base md:text-xl"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-4 text-left">
+                <div class="guide-card p-3 md:p-5 rounded-xl md:rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                    <h3 class="font-bold text-emerald-400 flex items-center mb-1.5 md:mb-3 text-xs md:text-base">
+                        <i class="fa-solid fa-shield-halved mr-1.5"></i> LIVES MODE
+                    </h3>
+                    <div class="space-y-2 md:space-y-4">
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-emerald-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-heart-pulse text-white text-[10px] md:text-xs"></i></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Medic Clay</span> Restores 1 life. At full health, provides +50 points.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-purple-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-border-all text-white text-[10px] md:text-xs"></i></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Safety Net</span> 8s baseline barrier. Missed targets break safely.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-cyan-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-snowflake text-white text-[10px] md:text-xs"></i></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Cryo Freeze</span> 5s of half-speed gravity. Clean up the screen easily.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-card p-3 md:p-5 rounded-xl md:rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                    <h3 class="font-bold text-amber-400 flex items-center mb-1.5 md:mb-3 text-xs md:text-base">
+                        <i class="fa-solid fa-bolt mr-1.5"></i> TIMED MODE
+                    </h3>
+                    <div class="space-y-2 md:space-y-4">
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-orange-500 flex items-center justify-center shrink-0"><span class="font-black text-[9px] md:text-[10px]">2X</span></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Multiplier</span> 6s window where all target points are doubled.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-red-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-fire text-white text-[10px] md:text-xs"></i></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Flame Rounds</span> 5s of explosive ammo. Radial blast damage.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-6 h-6 md:w-8 md:h-8 rounded-md md:rounded-lg bg-yellow-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-star text-white text-[10px] md:text-xs"></i></div>
+                            <p class="text-[10px] md:text-xs text-slate-300"><span class="font-bold text-white block">Frenzy Start</span> Triggers rapid-fire launch for massive combos.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="backFromGuideButton" class="action-btn mt-4 md:mt-6 w-full max-w-[240px] mx-auto bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 md:py-2.5 px-6 rounded-xl shadow text-xs md:text-sm">
+                Got it, let's play
+            </button>
+        </div>
+
+        <div id="pauseOverlay" class="game-overlay absolute inset-0 hidden flex flex-col justify-center items-center p-8 text-center bg-slate-950/80">
+            <h2 class="text-xl md:text-3xl font-black tracking-tight mb-4 md:mb-6 text-slate-100">GAME PAUSED</h2>
+            <div class="flex flex-col gap-2.5 w-full max-w-[240px] md:max-w-xs z-10">
+                <button id="resumeButton" class="action-btn bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-lg text-xs md:text-base">
+                    Resume Match
+                </button>
+                <button id="pauseSettingsButton" class="menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-white/10 bg-white/5 text-xs md:text-sm">
+                    Settings Options
+                </button>
+                <button id="quitMenuButton" class="action-btn bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-md text-xs md:text-base">
+                    Quit to Menu
+                </button>
+            </div>
+        </div>
+
+        <div id="settingsOverlay" class="game-overlay absolute inset-0 hidden flex flex-col justify-center p-4 md:p-10">
+            <h2 class="text-xl md:text-2xl font-black tracking-tight mb-3 md:mb-5 main-heading-text border-b border-white/10 pb-1.5">GAME SETTINGS</h2>
+            <div class="space-y-2.5 md:space-y-4 max-w-xs md:max-w-md mx-auto w-full">
+                <div class="p-2.5 md:p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold text-xs md:text-sm">Display Scaling</h4>
+                        <p class="text-[8px] md:text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Internal Physics Fixed</p>
+                    </div>
+                    <select id="resolutionSelect" class="bg-slate-800 text-[10px] md:text-xs font-semibold py-1 px-1.5 rounded-lg border border-white/10 outline-none">
+                        <option value="auto">Adaptive View</option>
+                        <option value="360x640">Mobile (360x640)</option>
+                        <option value="390x844">iPhone (390x844)</option>
+                        <option value="1920x1080">Full HD (1920x1080)</option>
+                        <option value="2560x1080">UltraWide (2560x1080)</option>
+                    </select>
+                </div>
+                <div class="p-2.5 md:p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold text-xs md:text-sm">SFX Volume</h4>
+                    </div>
+                    <input type="checkbox" id="sfxToggle" checked class="w-4 h-4 md:w-5 md:h-5 accent-emerald-500">
+                </div>
+            </div>
+            <button id="backToMainButton" class="action-btn mt-4 md:mt-6 w-full max-w-[240px] mx-auto bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 md:py-2.5 px-6 rounded-xl shadow text-xs md:text-sm">
+                Save & Back
+            </button>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+    <script  src="./script.js"></script>
+
+  </body>
+  
+</html>
