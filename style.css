@@ -1,3 +1,7 @@
+/* ============================================================
+   TRAP SHOOTING PRO — style.css v3.0
+   ============================================================ */
+
 body {
     background: #020617;
     font-family: 'Outfit', sans-serif;
@@ -8,79 +12,45 @@ body {
     width: 100vw;
 }
 
-/* Updated Flex/Layout configuration to account for separate top header on mobile */
-#hudWrapper:not(.hidden) {
-    display: flex !important;
-}
+#hudWrapper:not(.hidden) { display: flex !important; }
 
-/* Auto Display Scaling Matrix */
+/* ── Game container / aspect-ratio matrix ─────────────────── */
 .game-container {
     background: #0f172a;
     width: 100%;
     max-width: 1200px;
     height: 0;
-    padding-bottom: 56.25%; /* Perfect 16:9 Aspect Ratio Rule */
+    padding-bottom: 56.25%;
     border: 2px solid rgba(255, 255, 255, 0.05);
     position: relative;
 }
-
-@media (min-width: 768px) {
-    .game-container {
-        border-width: 4px;
-    }
-}
-
-/* Mobile Portrait Aspect Ratio Handling */
+@media (min-width: 768px) { .game-container { border-width: 4px; } }
 @media (max-aspect-ratio: 16/9) {
-    .game-container {
-        width: 100vw;
-        height: calc(100vw * 9 / 16);
-        padding-bottom: 0;
-    }
+    .game-container { width: 100vw; height: calc(100vw * 9 / 16); padding-bottom: 0; }
 }
-
-/* Dynamic height deduction rules so the display accounts for the pause row height */
 @media (min-aspect-ratio: 16/9) {
-    .game-container {
-        height: calc(100vh - 70px);
-        width: calc((100vh - 70px) * 16 / 9);
-        padding-bottom: 0;
-    }
+    .game-container { height: calc(100vh - 70px); width: calc((100vh - 70px) * 16 / 9); padding-bottom: 0; }
 }
 
-/* Canvas sits at the back layer */
+/* ── Canvas ───────────────────────────────────────────────── */
 canvas {
-    width: 100%;
-    height: 100%;
-    border-radius: 0; 
-    cursor: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 10;
+    width: 100%; height: 100%;
+    border-radius: 0; cursor: none;
+    position: absolute; top: 0; left: 0; z-index: 10;
 }
+@media (min-width: 768px) { canvas { border-radius: 1.5rem; } }
 
-@media (min-width: 768px) {
-    canvas {
-        border-radius: 1.5rem;
-    }
-}
-
-/* UI Overlays sit at the front layer so click events work */
+/* ── Overlays ─────────────────────────────────────────────── */
 .game-overlay {
-    background: rgba(15, 23, 42, 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     z-index: 40;
     -webkit-overflow-scrolling: touch;
 }
+@media (min-width: 768px) { .game-overlay { border-radius: 1.5rem; } }
 
-@media (min-width: 768px) {
-    .game-overlay {
-        border-radius: 1.5rem;
-    }
-}
-
+/* ── HUD cards ────────────────────────────────────────────── */
 .hud-card {
     background: rgba(30, 41, 59, 0.85);
     backdrop-filter: blur(8px);
@@ -90,41 +60,103 @@ canvas {
     border: 1px solid rgba(255, 255, 255, 0.1);
     min-width: 50px;
 }
-
 @media (min-width: 768px) {
-    .hud-card {
-        padding: 0.5rem 1rem;
-        border-radius: 0.75rem;
-        min-width: 80px;
-    }
+    .hud-card { padding: 0.5rem 1rem; border-radius: 0.75rem; min-width: 80px; }
 }
 
-.guide-card {
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* ── Guide cards ──────────────────────────────────────────── */
+.guide-card { transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.guide-card:hover { transform: translateY(-4px) scale(1.02); background: rgba(255,255,255,0.05); }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.action-btn { transition: all 0.2s ease; }
+.action-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.action-btn:active { transform: translateY(1px); }
+
+/* ── Scrollbars ───────────────────────────────────────────── */
+#guideOverlay::-webkit-scrollbar,
+#settingsOverlay::-webkit-scrollbar { width: 6px; }
+#guideOverlay::-webkit-scrollbar-thumb,
+#settingsOverlay::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+
+/* ── Difficulty picker buttons ────────────────────────────── */
+.diff-btn { transition: all 0.15s ease; }
+.diff-btn.active {
+    background: rgba(16,185,129,0.25) !important;
+    border-color: #10b981 !important;
+    color: #34d399 !important;
+    box-shadow: 0 0 0 1px #10b981;
+}
+/* Normal difficulty tab active state */
+.diff-btn[data-diff="normal"].active {
+    background: rgba(251,191,36,0.2) !important;
+    border-color: #fbbf24 !important;
+    color: #fde68a !important;
+    box-shadow: 0 0 0 1px #fbbf24;
 }
 
-.guide-card:hover {
-    transform: translateY(-4px) scale(1.02);
-    background: rgba(255, 255, 255, 0.05);
+/* ── Crosshair style swatches ─────────────────────────────── */
+.style-swatch { transition: all 0.15s ease; cursor: pointer; }
+.style-swatch.active {
+    background: rgba(16,185,129,0.2) !important;
+    border-color: #10b981 !important;
+    color: #34d399 !important;
+}
+.style-swatch:hover { background: rgba(255,255,255,0.08) !important; }
+
+/* ── Crosshair color swatches ─────────────────────────────── */
+.crosshair-swatch { transition: all 0.15s ease; cursor: pointer; }
+.crosshair-swatch.active { transform: scale(1.2); filter: brightness(1.4); }
+.crosshair-swatch:hover { transform: scale(1.1); }
+
+/* ── Particle density swatches ───────────────────────────── */
+.density-swatch { transition: all 0.15s ease; cursor: pointer; }
+.density-swatch.active {
+    background: rgba(16,185,129,0.2) !important;
+    border-color: #10b981 !important;
+    color: #34d399 !important;
 }
 
-.action-btn {
-    transition: all 0.2s ease;
+/* ── Combo HUD ────────────────────────────────────────────── */
+@keyframes comboPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.35); color: #fbbf24; }
+    100% { transform: scale(1); }
+}
+.combo-pulse { animation: comboPulse 0.22s ease-out; }
+
+/* ── High-score panel ─────────────────────────────────────── */
+#highScoreDisplay .hud-card { min-width: 80px; text-align: center; }
+
+/* ── New-best badge ───────────────────────────────────────── */
+@keyframes badgeFlash { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+#newHighScoreBadge:not(.hidden) { animation: badgeFlash 0.7s ease-in-out 4; }
+
+/* ── Stats card ───────────────────────────────────────────── */
+#statsCard {
+    background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6));
 }
 
-.action-btn:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.1);
+/* ── Volume slider ────────────────────────────────────────── */
+input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    height: 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.12); outline: none; width: 100%;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: #10b981; cursor: pointer; border: 2px solid #fff;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%; background: #10b981; cursor: pointer; border: 2px solid #fff;
 }
 
-.action-btn:active {
-    transform: translateY(1px);
-}
+/* ── Timed duration select ────────────────────────────────── */
+#timedDurationSelect { cursor: pointer; color: #fcd34d; }
 
-#guideOverlay::-webkit-scrollbar {
-    width: 6px;
-}
-#guideOverlay::-webkit-scrollbar-thumb {
-    background: #10b981;
-    border-radius: 10px;
-}
+/* ── Difficulty badge in HUD ──────────────────────────────── */
+#difficultyBadge:not(.hidden) { display: flex; }
+
+/* ── Warning glow pulse (JS-driven via canvas, but anchor here) ── */
+@keyframes warningBlink { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.2; } }
