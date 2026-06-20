@@ -59,41 +59,43 @@
         <!-- ── FLOATING POWER-UP SIDEBAR ───────────────────
              Visible only during active gameplay. Lets the player
              manually activate banked packs from the Daily Vault. -->
-        <div id="powerupSidebar" class="hidden absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1.5 md:gap-2">
+        <div id="powerupSidebar" class="hidden absolute z-20 flex
+            bottom-1.5 left-1/2 -translate-x-1/2 flex-row gap-1 justify-center
+            md:bottom-auto md:left-auto md:translate-x-0 md:right-3 md:top-1/2 md:-translate-y-1/2 md:flex-col md:gap-2">
             <!-- Universal: Safety Net -->
-            <button data-pack="safetyNet" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-purple-400/40 bg-purple-500/15 backdrop-blur-md flex items-center justify-center text-purple-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fa-solid fa-border-all text-sm md:text-lg"></i>
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-purple-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+            <button data-pack="safetyNet" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-purple-400/40 bg-purple-500/15 backdrop-blur-md flex items-center justify-center text-purple-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-border-all text-[10px] sm:text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-purple-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Safety Net — blocks next miss</span>
             </button>
             <!-- Universal: Cryo Freeze -->
-            <button data-pack="cryoFreeze" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-cyan-400/40 bg-cyan-500/15 backdrop-blur-md flex items-center justify-center text-cyan-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fa-solid fa-snowflake text-sm md:text-lg"></i>
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-cyan-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+            <button data-pack="cryoFreeze" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-cyan-400/40 bg-cyan-500/15 backdrop-blur-md flex items-center justify-center text-cyan-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-snowflake text-[10px] sm:text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-cyan-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Cryo Freeze — 0.5x target speed</span>
             </button>
             <!-- Universal: Multiplier -->
-            <button data-pack="multiplier" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-orange-400/40 bg-orange-500/15 backdrop-blur-md flex items-center justify-center text-orange-300 font-black text-xs md:text-base transition-all duration-300 hover:scale-105 active:scale-95">
+            <button data-pack="multiplier" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-orange-400/40 bg-orange-500/15 backdrop-blur-md flex items-center justify-center text-orange-300 font-black text-[9px] sm:text-xs md:text-base transition-all duration-300 hover:scale-105 active:scale-95">
                 2X
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-orange-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-orange-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Multiplier — double points 10s</span>
             </button>
             <!-- Universal: Flame Rounds -->
-            <button data-pack="flameRounds" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-red-400/40 bg-red-500/15 backdrop-blur-md flex items-center justify-center text-red-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fa-solid fa-fire text-sm md:text-lg"></i>
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-red-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+            <button data-pack="flameRounds" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-red-400/40 bg-red-500/15 backdrop-blur-md flex items-center justify-center text-red-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-fire text-[10px] sm:text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-red-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Flame Rounds — explosive AoE. Now fully compatible across Lives and Time Attack modes!</span>
             </button>
             <!-- Lives-only: Medic Clay -->
-            <button data-pack="medicClay" data-mode-lock="lives" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-emerald-400/40 bg-emerald-500/15 backdrop-blur-md flex items-center justify-center text-emerald-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fa-solid fa-heart-pulse text-sm md:text-lg"></i>
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-emerald-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+            <button data-pack="medicClay" data-mode-lock="lives" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-emerald-400/40 bg-emerald-500/15 backdrop-blur-md flex items-center justify-center text-emerald-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-heart-pulse text-[10px] sm:text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-emerald-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Medic Clay — restores 1 life</span>
             </button>
             <!-- Timed-only: Frenzy -->
-            <button data-pack="frenzy" data-mode-lock="timed" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-yellow-400/40 bg-yellow-500/15 backdrop-blur-md flex items-center justify-center text-yellow-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fa-solid fa-star text-sm md:text-lg"></i>
-                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-yellow-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+            <button data-pack="frenzy" data-mode-lock="timed" class="pack-btn relative w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg md:rounded-xl border border-yellow-400/40 bg-yellow-500/15 backdrop-blur-md flex items-center justify-center text-yellow-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-star text-[10px] sm:text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[7px] sm:text-[8px] md:text-[9px] font-black bg-yellow-500 text-white rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
                 <span class="pack-tooltip">Frenzy — rapid-fire wave burst</span>
             </button>
         </div>
