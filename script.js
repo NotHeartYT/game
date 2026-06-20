@@ -33,7 +33,7 @@ const CURRENT_VERSION = "5.1";
 const CHANGELOG_HISTORY = [
     {
         v: "5.1",
-        date: "2026-06",
+        date: "6-20-2026",
         notes: [
             "Added the Daily Vault — claim a free power-up pack every 24 hours",
             "New floating in-game power-up sidebar with cross-mode restrictions",
@@ -45,7 +45,7 @@ const CHANGELOG_HISTORY = [
     },
     {
         v: "5.0",
-        date: "2026-06",
+        date: "6-18-2026",
         notes: [
             "Expanded controller-only advanced settings (sensitivity, deadzone, aim assist)",
             "Full D-pad pause-menu navigation and reliable Start-button resume",
