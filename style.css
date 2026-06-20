@@ -343,6 +343,33 @@ input[type="range"]::-moz-range-thumb {
 /* ── In-game floating power-up sidebar ────────────────────── */
 #powerupSidebar.hidden { display: none !important; }
 
+/* Mobile: horizontal bar along the bottom — keep it inside the canvas
+   even on very narrow phones, and shrink gaps further if needed */
+#powerupSidebar {
+    max-width: calc(100% - 12px);
+    flex-wrap: nowrap;
+}
+@media (max-width: 380px) {
+    #powerupSidebar { gap: 3px !important; }
+}
+
+/* On the bottom-bar (mobile) layout, tooltips popping out sideways
+   would get clipped by the canvas edge — point them upward instead */
+@media (max-width: 767px) {
+    .pack-tooltip {
+        right: auto;
+        left: 50%;
+        top: auto;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%) translateY(6px);
+    }
+    .pack-btn:hover .pack-tooltip,
+    .pack-btn:focus .pack-tooltip {
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+
 .pack-btn {
     cursor: pointer;
 }
@@ -443,4 +470,8 @@ input[type="range"]::-moz-range-thumb {
     margin-bottom: 0.15rem;
 }
 
-
+/* ── Auto-update toast (injected by JS, see checkForUpdate) ── */
+@keyframes updateToastIn {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
