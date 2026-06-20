@@ -133,9 +133,7 @@ canvas {
 #newHighScoreBadge:not(.hidden) { animation: badgeFlash 0.7s ease-in-out 4; }
 
 /* ── Stats card ───────────────────────────────────────────── */
-#statsCard {
-    background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6));
-}
+#statsCard { background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6)); }
 
 /* ── Volume slider ────────────────────────────────────────── */
 input[type="range"] {
@@ -160,3 +158,289 @@ input[type="range"]::-moz-range-thumb {
 
 /* ── Warning glow pulse (JS-driven via canvas, but anchor here) ── */
 @keyframes warningBlink { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.2; } }
+
+/* ── Controller badge in HUD ──────────────────────────────── */
+#controllerBadge:not(.hidden) { display: flex; }
+
+/* ── Controller Mapping section ──────────────────────────── */
+
+/* OFF: no pad detected — grayed out, not clickable, subdued */
+.pad-section-off {
+    opacity: 0.38;
+    pointer-events: none;
+    cursor: not-allowed;
+    filter: grayscale(55%);
+    user-select: none;
+    transition: opacity 0.3s ease, filter 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+
+/* ON: pad connected — full color, fully interactive, violet accent */
+.pad-section-on {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: default;
+    filter: none;
+    user-select: auto;
+    border-color: rgba(139, 92, 246, 0.45) !important;
+    background: rgba(139, 92, 246, 0.07) !important;
+    transition: opacity 0.3s ease, filter 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+
+/* ── Preset buttons ───────────────────────────────────────── */
+.preset-btn { transition: all 0.15s ease; cursor: pointer; }
+.preset-btn.active {
+    background: rgba(139, 92, 246, 0.28) !important;
+    border-color: #8b5cf6 !important;
+    color: #c4b5fd !important;
+}
+.preset-btn:hover { background: rgba(255,255,255,0.08) !important; }
+
+/* ── Connection indicator dot ─────────────────────────────── */
+#padDot { transition: background 0.3s ease, box-shadow 0.3s ease; }
+#padDot.connected {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: padDotPulse 2s ease-in-out infinite;
+}
+@keyframes padDotPulse {
+    0%, 100% { box-shadow: 0 0 4px #10b981; }
+    50%       { box-shadow: 0 0 14px #10b981, 0 0 22px rgba(16,185,129,0.35); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v5 — NEW STYLES
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Scrollable settings pane ─────────────────────────────── */
+.settings-scroll-pane {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+    position: relative;
+}
+.settings-scroll-pane::-webkit-scrollbar { width: 4px; }
+.settings-scroll-pane::-webkit-scrollbar-track { background: transparent; }
+.settings-scroll-pane::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #8b5cf6, #10b981);
+    border-radius: 4px;
+}
+/* Fade mask at the bottom to hint at more content */
+#settingsOverlay {
+    /* Override the old justify-center so the flex layout fills the overlay height */
+    justify-content: flex-start !important;
+}
+
+/* ── Advanced controller subsection accent ────────────────── */
+#padAdvancedSection.pad-section-on {
+    border-color: rgba(139, 92, 246, 0.4) !important;
+    background: rgba(139, 92, 246, 0.06) !important;
+}
+
+/* ── Pad toggle buttons ───────────────────────────────────── */
+.pad-toggle-btn { cursor: pointer; display: block; flex-shrink: 0; }
+.pad-toggle-knob { display: block; pointer-events: none; }
+
+/* ── D-pad focus ring on pause-menu buttons ───────────────── */
+.pause-nav-btn { outline: none; }
+.pause-nav-btn.pad-focused {
+    box-shadow: 0 0 0 2px #8b5cf6, 0 0 12px rgba(139,92,246,0.5);
+}
+
+/* ── Timer HUD card — upgraded ────────────────────────────── */
+.timer-hud-card {
+    transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.timer-hud-card.timer-urgent {
+    background: rgba(220, 38, 38, 0.25) !important;
+    border-color: rgba(239, 68, 68, 0.6) !important;
+    box-shadow: 0 0 12px rgba(239,68,68,0.4);
+}
+.timer-val {
+    display: inline-block;
+    transition: color 0.3s ease;
+}
+.timer-hud-card.timer-urgent .timer-val {
+    color: #fca5a5 !important;
+}
+
+/* ── Timer pulse animation (fires each countdown tick when urgent) ── */
+@keyframes timerTickPulse {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.22); }
+    100% { transform: scale(1); }
+}
+.timer-pulse {
+    animation: timerTickPulse 0.22s ease-out;
+}
+
+/* ════════════════════════════════════════════════════════════
+   v6 — DAILY VAULT, POWER-UP SIDEBAR, CHANGELOG
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Daily Vault menu button ──────────────────────────────── */
+.vault-btn { transition: all 0.3s ease; }
+.vault-btn.vault-available {
+    animation: vaultGlow 1.8s ease-in-out infinite;
+}
+@keyframes vaultGlow {
+    0%, 100% { box-shadow: 0 0 6px rgba(251,191,36,0.35); }
+    50%       { box-shadow: 0 0 18px rgba(251,191,36,0.75), 0 0 30px rgba(251,191,36,0.25); }
+}
+#vaultButtonInner { transition: opacity 0.2s ease; }
+
+/* ── What's New badge ─────────────────────────────────────── */
+#whatsNewBadge { box-shadow: 0 0 8px rgba(244,63,94,0.7); }
+
+/* ── Vault overlay glassmorphism panels ───────────────────── */
+#vaultIdleState, #vaultCooldownState, #vaultRewardState {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Chest rock animation while idle/available */
+#vaultChest {
+    animation: vaultChestIdle 2.4s ease-in-out infinite;
+}
+@keyframes vaultChestIdle {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25%       { transform: rotate(-4deg) scale(1.03); }
+    75%       { transform: rotate(4deg) scale(1.03); }
+}
+
+/* Violent rock + opening burst sequence, applied via JS */
+.vault-rocking {
+    animation: vaultRock 0.5s ease-in-out 3;
+}
+@keyframes vaultRock {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    20%       { transform: rotate(-10deg) scale(1.05); }
+    40%       { transform: rotate(8deg) scale(1.08); }
+    60%       { transform: rotate(-8deg) scale(1.1); }
+    80%       { transform: rotate(6deg) scale(1.05); }
+}
+
+/* Full-screen white flare burst on claim */
+.vault-flash-burst {
+    animation: vaultFlashBurst 0.5s ease-out forwards;
+}
+@keyframes vaultFlashBurst {
+    0%   { opacity: 0; }
+    15%  { opacity: 0.95; }
+    100% { opacity: 0; }
+}
+
+/* Reward card vertical reveal */
+.vault-reward-enter {
+    animation: vaultRewardEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes vaultRewardEnter {
+    0%   { transform: translateY(40px) scale(0.85); opacity: 0; }
+    60%  { transform: translateY(-6px) scale(1.04); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ── In-game floating power-up sidebar ────────────────────── */
+#powerupSidebar.hidden { display: none !important; }
+
+.pack-btn {
+    cursor: pointer;
+}
+.pack-btn:disabled,
+.pack-btn.pack-locked {
+    opacity: 0.32;
+    filter: grayscale(70%);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+/* Allow hover on locked buttons to still reveal the tooltip explaining why */
+.pack-btn.pack-locked-hoverable {
+    opacity: 0.32;
+    filter: grayscale(70%);
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+.pack-btn.pack-empty {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.pack-count {
+    border: 2px solid #0f172a;
+    pointer-events: none;
+}
+
+/* Tooltip shown on hover/focus, positioned to the left of the sidebar */
+.pack-tooltip {
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%) translateX(6px);
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #e2e8f0;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    max-width: 180px;
+    white-space: normal;
+    width: max-content;
+    max-width: 170px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 30;
+}
+.pack-btn:hover .pack-tooltip,
+.pack-btn:focus .pack-tooltip {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+.pack-tooltip.tooltip-warning {
+    border-color: rgba(239,68,68,0.5);
+    color: #fca5a5;
+}
+
+/* Active-use flash on a sidebar button when triggered */
+@keyframes packActivate {
+    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.6); }
+    100% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+}
+.pack-btn.pack-just-used {
+    animation: packActivate 0.5s ease-out;
+}
+
+/* ── Changelog overlay entries ─────────────────────────────── */
+.changelog-entry {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+}
+.changelog-entry .changelog-version {
+    color: #34d399;
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+.changelog-entry .changelog-date {
+    color: #64748b;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.changelog-entry ul {
+    margin-top: 0.4rem;
+    padding-left: 1.1rem;
+    list-style: disc;
+}
+.changelog-entry li {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    margin-bottom: 0.15rem;
+}
+
+
