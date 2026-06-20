@@ -26,9 +26,9 @@
                 <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Lives</span>
                 <span class="text-sm md:text-xl font-bold tracking-tight">3</span>
             </div>
-            <div id="timerDisplay" class="hud-card text-slate-100 hidden">
+            <div id="timerDisplay" class="hud-card timer-hud-card text-slate-100 hidden">
                 <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Time Left</span>
-                <span class="text-sm md:text-xl font-bold tracking-tight">60s</span>
+                <span id="timerInner" class="text-sm md:text-xl font-bold tracking-tight timer-val">60s</span>
             </div>
             <div id="comboDisplay" class="hud-card text-slate-100 hidden">
                 <span class="hud-label text-[9px] md:text-xs font-semibold uppercase tracking-wider block mb-0.5">Combo</span>
@@ -37,6 +37,11 @@
             <!-- Difficulty badge shown during Lives Mode -->
             <div id="difficultyBadge" class="hud-card hidden items-center justify-center">
                 <span id="difficultyLabel" class="text-[9px] md:text-xs font-black uppercase tracking-widest text-emerald-400">EASY</span>
+            </div>
+            <!-- Controller badge shown when a gamepad is connected -->
+            <div id="controllerBadge" class="hud-card hidden items-center gap-1 justify-center">
+                <i class="fa-solid fa-gamepad text-violet-400 text-[9px] md:text-xs"></i>
+                <span class="text-[9px] md:text-xs font-black uppercase tracking-widest text-violet-400">PAD</span>
             </div>
         </div>
         <button id="pauseButton" class="action-btn pointer-events-auto bg-slate-900/80 backdrop-blur-md border border-white/10 hover:bg-slate-800 text-slate-200 px-2 py-1 md:px-3 md:py-1.5 font-mono text-[10px] md:text-sm font-bold rounded-lg md:rounded-xl shadow-lg tracking-widest">
@@ -47,6 +52,48 @@
     <div id="mainContainer" class="game-container relative rounded-2xl md:rounded-3xl shadow-2xl flex flex-col items-center justify-center overflow-hidden w-full">
 
         <canvas id="gameCanvas" class="shadow-inner absolute top-0 left-0 w-full h-full"></canvas>
+
+        <!-- ── FLOATING POWER-UP SIDEBAR ───────────────────
+             Visible only during active gameplay. Lets the player
+             manually activate banked packs from the Daily Vault. -->
+        <div id="powerupSidebar" class="hidden absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1.5 md:gap-2">
+            <!-- Universal: Safety Net -->
+            <button data-pack="safetyNet" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-purple-400/40 bg-purple-500/15 backdrop-blur-md flex items-center justify-center text-purple-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-border-all text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-purple-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Safety Net — blocks next miss</span>
+            </button>
+            <!-- Universal: Cryo Freeze -->
+            <button data-pack="cryoFreeze" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-cyan-400/40 bg-cyan-500/15 backdrop-blur-md flex items-center justify-center text-cyan-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-snowflake text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-cyan-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Cryo Freeze — 0.5x target speed</span>
+            </button>
+            <!-- Universal: Multiplier -->
+            <button data-pack="multiplier" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-orange-400/40 bg-orange-500/15 backdrop-blur-md flex items-center justify-center text-orange-300 font-black text-xs md:text-base transition-all duration-300 hover:scale-105 active:scale-95">
+                2X
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-orange-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Multiplier — double points 10s</span>
+            </button>
+            <!-- Universal: Flame Rounds -->
+            <button data-pack="flameRounds" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-red-400/40 bg-red-500/15 backdrop-blur-md flex items-center justify-center text-red-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-fire text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-red-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Flame Rounds — explosive AoE. Now fully compatible across Lives and Time Attack modes!</span>
+            </button>
+            <!-- Lives-only: Medic Clay -->
+            <button data-pack="medicClay" data-mode-lock="lives" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-emerald-400/40 bg-emerald-500/15 backdrop-blur-md flex items-center justify-center text-emerald-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-heart-pulse text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-emerald-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Medic Clay — restores 1 life</span>
+            </button>
+            <!-- Timed-only: Frenzy -->
+            <button data-pack="frenzy" data-mode-lock="timed" class="pack-btn relative w-10 h-10 md:w-14 md:h-14 rounded-xl border border-yellow-400/40 bg-yellow-500/15 backdrop-blur-md flex items-center justify-center text-yellow-300 transition-all duration-300 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-star text-sm md:text-lg"></i>
+                <span class="pack-count absolute -top-1 -right-1 text-[8px] md:text-[9px] font-black bg-yellow-500 text-white rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shadow">0/3</span>
+                <span class="pack-tooltip">Frenzy — rapid-fire wave burst</span>
+            </button>
+        </div>
 
         <!-- ── MAIN MENU OVERLAY ───────────────────────── -->
         <div id="gameOverlay" class="game-overlay absolute inset-0 flex flex-col justify-center items-center p-3 md:p-8 text-center transition-all duration-300 overflow-y-auto">
@@ -108,6 +155,19 @@
                         <i class="fa-solid fa-book-open mr-1"></i>Field Guide
                     </button>
                 </div>
+
+                <!-- Daily Vault + Changelog row -->
+                <div class="flex gap-2">
+                    <button id="dailyVaultButton" class="vault-btn relative flex-1 font-bold py-1.5 md:py-2.5 px-3 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:from-amber-500/30 hover:to-yellow-500/20 text-[11px] md:text-sm overflow-hidden">
+                        <span id="vaultButtonInner" class="relative z-10 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-vault"></i> Daily Vault
+                        </span>
+                    </button>
+                    <button id="changelogButton" class="relative flex-1 font-semibold py-1.5 md:py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] md:text-sm text-slate-300">
+                        <i class="fa-solid fa-list-check mr-1"></i>Changelog
+                        <span id="whatsNewBadge" class="hidden absolute -top-1.5 -right-1.5 text-[7px] font-black uppercase tracking-wide bg-rose-500 text-white px-1.5 py-0.5 rounded-full shadow-lg animate-pulse">New!</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Game-over end screen (hidden by default) -->
@@ -134,6 +194,9 @@
                         <span id="statShots" class="font-bold text-slate-200">—</span>
                     </div>
                 </div>
+                <button id="playAgainButton" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2 md:py-3 px-4 rounded-xl shadow-lg text-xs md:text-base">
+                    <i class="fa-solid fa-rotate-right mr-1.5"></i>Play Again
+                </button>
                 <button id="quitToMenuFromEnd" class="w-full bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-500 hover:to-emerald-400 text-white font-bold py-2 md:py-3 px-4 rounded-xl shadow-lg text-xs md:text-base">
                     Return to Main Menu
                 </button>
@@ -209,22 +272,23 @@
             <h2 class="text-xl md:text-3xl font-black tracking-tight mb-1 text-slate-100">GAME PAUSED</h2>
             <p id="pauseDiffLabel" class="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-5"></p>
             <div class="flex flex-col gap-2.5 w-full max-w-[240px] md:max-w-xs z-10">
-                <button id="resumeButton" class="action-btn bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-lg text-xs md:text-base">
+                <button id="resumeButton" data-pause-idx="0" class="pause-nav-btn action-btn bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-lg text-xs md:text-base">
                     Resume Match
                 </button>
-                <button id="pauseSettingsButton" class="menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-white/10 bg-white/5 text-xs md:text-sm">
+                <button id="pauseSettingsButton" data-pause-idx="1" class="pause-nav-btn menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-white/10 bg-white/5 text-xs md:text-sm">
                     Settings Options
                 </button>
-                <button id="quitMenuButton" class="action-btn bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-md text-xs md:text-base">
+                <button id="quitMenuButton" data-pause-idx="2" class="pause-nav-btn action-btn bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-md text-xs md:text-base">
                     Quit to Menu
                 </button>
             </div>
         </div>
 
         <!-- ── SETTINGS OVERLAY ────────────────────────── -->
-        <div id="settingsOverlay" class="game-overlay absolute inset-0 hidden flex flex-col justify-center p-4 md:p-8 overflow-y-auto">
-            <h2 class="text-xl md:text-2xl font-black tracking-tight mb-3 md:mb-4 main-heading-text border-b border-white/10 pb-1.5">GAME SETTINGS</h2>
-            <div class="space-y-2.5 md:space-y-3 max-w-xs md:max-w-md mx-auto w-full">
+        <div id="settingsOverlay" class="game-overlay absolute inset-0 hidden flex flex-col p-4 md:p-8">
+            <h2 class="text-xl md:text-2xl font-black tracking-tight mb-3 md:mb-4 main-heading-text border-b border-white/10 pb-1.5 flex-shrink-0">GAME SETTINGS</h2>
+            <!-- Polished custom-scrolling inner container -->
+            <div id="settingsScroll" class="settings-scroll-pane flex-1 overflow-y-auto min-h-0 pr-1 space-y-2.5 md:space-y-3 max-w-xs md:max-w-md mx-auto w-full">
 
                 <!-- Display Scaling -->
                 <div class="p-2.5 md:p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
@@ -288,9 +352,160 @@
                     </div>
                 </div>
 
-            </div>
-            <button id="backToMainButton" class="action-btn mt-4 md:mt-5 w-full max-w-[240px] mx-auto bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 md:py-2.5 px-6 rounded-xl shadow text-xs md:text-sm">
+                <!-- Controller Mapping -->
+                <div id="controllerSection" class="pad-section-off p-2.5 md:p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h4 class="font-bold text-xs md:text-sm flex items-center gap-1.5">
+                                <i class="fa-solid fa-gamepad"></i> Controller Mapping
+                            </h4>
+                            <p id="padStatusText" class="text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-0.5">No controller detected</p>
+                        </div>
+                        <div id="padDot" class="w-2.5 h-2.5 rounded-full bg-slate-600 flex-shrink-0"></div>
+                    </div>
+                    <div class="flex gap-1.5" id="padPresets">
+                        <button data-preset="default"
+                            class="preset-btn flex-1 py-1.5 px-1 rounded-lg border border-white/10 bg-white/5 text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide text-center leading-snug">
+                            Default<br><span class="text-[7px] font-normal normal-case tracking-normal opacity-60">RT = Fire</span>
+                        </button>
+                        <button data-preset="bumper"
+                            class="preset-btn flex-1 py-1.5 px-1 rounded-lg border border-white/10 bg-white/5 text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide text-center leading-snug">
+                            Bumper<br><span class="text-[7px] font-normal normal-case tracking-normal opacity-60">RB = Fire</span>
+                        </button>
+                        <button data-preset="tactical"
+                            class="preset-btn flex-1 py-1.5 px-1 rounded-lg border border-white/10 bg-white/5 text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide text-center leading-snug">
+                            Tactical<br><span class="text-[7px] font-normal normal-case tracking-normal opacity-60">A / X = Fire</span>
+                        </button>
+                    </div>
+                    <div id="padLegend" class="hidden mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] md:text-[9px] text-slate-500">
+                        <div><span class="text-slate-300 font-bold">L-Stick</span> → Move crosshair</div>
+                        <div><span id="legendFireLabel" class="text-violet-400 font-bold">RT</span> → Fire</div>
+                        <div><span class="text-slate-300 font-bold">Start</span> → Pause / Resume</div>
+                        <div><span class="text-slate-300 font-bold">D-Pad</span> → Navigate menus</div>
+                    </div>
+                </div>
+
+                <!-- ── CONTROLLER-ONLY ADVANCED SETTINGS ──────── -->
+                <!-- Shown/interactive only when a pad is connected -->
+                <div id="padAdvancedSection" class="pad-section-off p-2.5 md:p-4 rounded-xl bg-violet-500/5 border border-violet-500/20">
+                    <h4 class="font-bold text-xs md:text-sm mb-3 flex items-center gap-1.5 text-violet-300">
+                        <i class="fa-solid fa-sliders"></i> Advanced Controller
+                    </h4>
+
+                    <!-- Stick Sensitivity -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-[10px] md:text-xs font-semibold text-slate-300">Aim Sensitivity</label>
+                            <span id="sensitivityLabel" class="text-[10px] text-violet-400 font-bold">5</span>
+                        </div>
+                        <input type="range" id="sensitivitySlider" min="1" max="10" value="5" class="w-full cursor-pointer">
+                    </div>
+
+                    <!-- Deadzone -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-[10px] md:text-xs font-semibold text-slate-300">Deadzone</label>
+                            <span id="deadzoneLabel" class="text-[10px] text-violet-400 font-bold">18%</span>
+                        </div>
+                        <input type="range" id="deadzoneSlider" min="5" max="40" value="18" class="w-full cursor-pointer">
+                    </div>
+
+                    <!-- Aim Acceleration -->
+                    <div class="mb-3">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-[10px] md:text-xs font-semibold text-slate-300">Aim Acceleration</label>
+                            <span id="aimAccelLabel" class="text-[10px] text-violet-400 font-bold">50%</span>
+                        </div>
+                        <input type="range" id="aimAccelSlider" min="0" max="100" value="50" class="w-full cursor-pointer">
+                    </div>
+
+                    <!-- Vibration toggle -->
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-[10px] md:text-xs font-semibold text-slate-300">Vibration / Rumble</label>
+                        <button id="vibrationToggle" data-on="true"
+                            class="pad-toggle-btn w-10 h-5 rounded-full bg-violet-600 relative transition-all">
+                            <span class="pad-toggle-knob absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white transition-all"></span>
+                        </button>
+                    </div>
+
+                    <!-- Controller Assist -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-[10px] md:text-xs font-semibold text-slate-300">Aim Assist</label>
+                            <p class="text-[7px] text-slate-500 font-bold uppercase tracking-tighter">Magnetism toward targets</p>
+                        </div>
+                        <button id="aimAssistToggle" data-on="false"
+                            class="pad-toggle-btn w-10 h-5 rounded-full bg-slate-700 relative transition-all">
+                            <span class="pad-toggle-knob absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-all"></span>
+                        </button>
+                    </div>
+                </div>
+
+            </div><!-- /settingsScroll -->
+            <button id="backToMainButton" class="action-btn mt-3 md:mt-4 w-full max-w-[240px] mx-auto bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 md:py-2.5 px-6 rounded-xl shadow text-xs md:text-sm flex-shrink-0">
                 Save & Back
+            </button>
+        </div>
+
+        <!-- ── DAILY VAULT OVERLAY ─────────────────────── -->
+        <div id="vaultOverlay" class="game-overlay absolute inset-0 hidden flex flex-col justify-center items-center p-4 md:p-8 text-center overflow-y-auto">
+
+            <!-- IDLE / available-to-claim state -->
+            <div id="vaultIdleState" class="w-full max-w-xs md:max-w-sm">
+                <div id="vaultChest" class="text-6xl md:text-8xl mb-3 md:mb-4 select-none">🎁</div>
+                <h2 class="text-xl md:text-3xl font-black tracking-tight main-heading-text mb-1">DAILY VAULT</h2>
+                <p class="text-[10px] md:text-xs text-slate-400 mb-5">Open your free daily pack — one random power-up, every 24 hours.</p>
+                <button id="claimVaultButton" class="action-btn w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 font-black py-2.5 md:py-3.5 px-6 rounded-xl shadow-lg text-sm md:text-base tracking-wide">
+                    <i class="fa-solid fa-gift mr-1.5"></i>OPEN VAULT
+                </button>
+            </div>
+
+            <!-- COOLDOWN state -->
+            <div id="vaultCooldownState" class="hidden w-full max-w-xs md:max-w-sm">
+                <div class="text-6xl md:text-8xl mb-3 md:mb-4 opacity-50 select-none">🔒</div>
+                <h2 class="text-xl md:text-3xl font-black tracking-tight text-slate-400 mb-1">VAULT LOCKED</h2>
+                <p class="text-[10px] md:text-xs text-slate-500 mb-5">Come back soon for your next free pack.</p>
+                <div class="bg-white/5 border border-white/10 rounded-xl py-3 px-4 backdrop-blur-md">
+                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Next Drop</span>
+                    <span id="vaultCountdownText" class="text-xl md:text-3xl font-black text-amber-300 tracking-wider tabular-nums">⏳ 00:00:00</span>
+                </div>
+            </div>
+
+            <!-- REWARD REVEAL state (box-opening animation) -->
+            <div id="vaultRewardState" class="hidden w-full max-w-xs md:max-w-sm">
+                <div id="vaultRewardIcon" class="text-6xl md:text-8xl mb-3 select-none">✨</div>
+                <h3 id="vaultRewardTitle" class="text-lg md:text-2xl font-black tracking-tight text-amber-300 mb-1">YOU GOT...</h3>
+                <p id="vaultRewardName" class="text-base md:text-xl font-bold text-white mb-1">Safety Net</p>
+                <p id="vaultRewardSummary" class="text-[10px] md:text-xs text-slate-400 mb-5">Universal · usable in any mode</p>
+                <button id="vaultContinueButton" class="action-btn w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-lg text-xs md:text-base">
+                    Continue
+                </button>
+            </div>
+
+            <button id="closeVaultButton" class="menu-btn mt-5 md:mt-6 text-[10px] md:text-xs text-slate-500 hover:text-slate-300 font-semibold uppercase tracking-widest">
+                Close
+            </button>
+        </div>
+
+        <!-- White flash overlay used during the vault-opening burst -->
+        <div id="vaultFlash" class="hidden absolute inset-0 bg-white pointer-events-none z-50"></div>
+
+        <!-- ── CHANGELOG OVERLAY ───────────────────────── -->
+        <div id="changelogOverlay" class="game-overlay absolute inset-0 hidden flex flex-col p-4 md:p-8 overflow-y-auto">
+            <div class="flex items-center justify-between mb-3 md:mb-6 border-b border-white/10 pb-2 md:pb-4 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg md:text-2xl font-black tracking-tight main-heading-text">WHAT'S NEW</h2>
+                    <p class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest">Build History &amp; Patch Notes</p>
+                </div>
+                <button id="closeChangelogButton" class="bg-white/5 hover:bg-white/10 p-1.5 md:p-2 rounded-full transition-all">
+                    <i class="fa-solid fa-xmark text-base md:text-xl"></i>
+                </button>
+            </div>
+            <div id="changelogList" class="flex-1 overflow-y-auto settings-scroll-pane space-y-3 max-w-md mx-auto w-full text-left">
+                <!-- populated by JS -->
+            </div>
+            <button id="changelogGotItButton" class="action-btn mt-4 md:mt-6 w-full max-w-[240px] mx-auto bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 md:py-2.5 px-6 rounded-xl shadow text-xs md:text-sm flex-shrink-0">
+                Got it!
             </button>
         </div>
 
