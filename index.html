@@ -161,6 +161,12 @@
                     </button>
                 </div>
 
+                <!-- Challenges button (own row, full width) -->
+                <button id="challengesButton" class="relative font-bold py-1.5 md:py-2.5 px-3 rounded-xl border border-sky-400/40 bg-gradient-to-r from-sky-500/15 to-indigo-500/10 text-sky-300 hover:from-sky-500/25 hover:to-indigo-500/20 text-[11px] md:text-sm">
+                    <i class="fa-solid fa-list-check mr-1.5"></i>Challenges
+                    <span id="challengesNotifDot" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-lg animate-pulse"></span>
+                </button>
+
                 <!-- Daily Vault + Changelog row -->
                 <div class="flex gap-2">
                     <button id="dailyVaultButton" class="vault-btn relative flex-1 font-bold py-1.5 md:py-2.5 px-3 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:from-amber-500/30 hover:to-yellow-500/20 text-[11px] md:text-sm overflow-hidden">
@@ -280,10 +286,14 @@
                 <button id="resumeButton" data-pause-idx="0" class="pause-nav-btn action-btn bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-lg text-xs md:text-base">
                     Resume Match
                 </button>
-                <button id="pauseSettingsButton" data-pause-idx="1" class="pause-nav-btn menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-white/10 bg-white/5 text-xs md:text-sm">
+                <button id="pauseChallengesButton" data-pause-idx="1" class="pause-nav-btn relative menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-sky-400/30 bg-sky-500/10 text-sky-300 text-xs md:text-sm">
+                    <i class="fa-solid fa-list-check mr-1.5"></i>Challenges
+                    <span id="pauseChallengesNotifDot" class="hidden absolute top-1 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                </button>
+                <button id="pauseSettingsButton" data-pause-idx="2" class="pause-nav-btn menu-btn font-semibold py-1.5 md:py-2.5 px-6 rounded-xl border border-white/10 bg-white/5 text-xs md:text-sm">
                     Settings Options
                 </button>
-                <button id="quitMenuButton" data-pause-idx="2" class="pause-nav-btn action-btn bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-md text-xs md:text-base">
+                <button id="quitMenuButton" data-pause-idx="3" class="pause-nav-btn action-btn bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 md:py-3 px-6 rounded-xl shadow-md text-xs md:text-base">
                     Quit to Menu
                 </button>
             </div>
@@ -513,6 +523,50 @@
                 Got it!
             </button>
         </div>
+
+        <!-- ── CHALLENGES OVERLAY ──────────────────────── -->
+        <div id="challengesOverlay" class="game-overlay absolute inset-0 hidden flex flex-col p-3 md:p-7">
+            <div class="flex items-center justify-between mb-2.5 md:mb-4 border-b border-white/10 pb-2 md:pb-3 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg md:text-2xl font-black tracking-tight main-heading-text">CHALLENGES</h2>
+                    <p class="text-[9px] text-sky-400 font-bold uppercase tracking-widest">Complete objectives · earn power-up packs</p>
+                </div>
+                <button id="closeChallengesButton" class="bg-white/5 hover:bg-white/10 p-1.5 md:p-2 rounded-full transition-all">
+                    <i class="fa-solid fa-xmark text-base md:text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Tab navigation: Daily / Weekly -->
+            <div class="flex gap-2 mb-2.5 md:mb-3 flex-shrink-0 max-w-md mx-auto w-full">
+                <button data-challenge-tab="daily" class="challenge-tab-btn flex-1 py-2 rounded-xl border border-sky-400/40 bg-sky-500/15 text-sky-300 font-black text-[11px] md:text-sm uppercase tracking-wide transition-all">
+                    <i class="fa-solid fa-sun mr-1"></i> Daily
+                </button>
+                <button data-challenge-tab="weekly" class="challenge-tab-btn flex-1 py-2 rounded-xl border border-white/10 bg-white/5 text-slate-400 font-black text-[11px] md:text-sm uppercase tracking-wide transition-all">
+                    <i class="fa-solid fa-calendar-week mr-1"></i> Weekly
+                </button>
+            </div>
+
+            <!-- Cycle info bar: countdown + reroll counter -->
+            <div class="flex items-center justify-between mb-2.5 md:mb-3 flex-shrink-0 max-w-md mx-auto w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-hourglass-half text-[10px] text-slate-400"></i>
+                    <span class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Resets in:</span>
+                    <span id="challengeCycleCountdown" class="text-[10px] md:text-xs font-black text-amber-300 tabular-nums">--:--:--</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Rerolls:</span>
+                    <span id="challengeRerollCount" class="text-[10px] md:text-xs font-black text-violet-300">3</span>
+                </div>
+            </div>
+
+            <!-- Challenge cards grid (scrollable) -->
+            <div id="challengesGrid" class="flex-1 overflow-y-auto settings-scroll-pane grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-3 max-w-3xl mx-auto w-full content-start pb-2">
+                <!-- populated by JS -->
+            </div>
+        </div>
+
+        <!-- ── STEAM-STYLE TOAST NOTIFICATION CONTAINER ─── -->
+        <div id="toastContainer" class="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     </div><!-- /.game-container -->
 
