@@ -133,6 +133,18 @@ const DOM = {
     changelogGotItButton:document.getElementById('changelogGotItButton'),
     powerupSidebar:      document.getElementById('powerupSidebar'),
     packBtns:            document.querySelectorAll('.pack-btn'),
+    // v7: Challenges System
+    challengesButton:        document.getElementById('challengesButton'),
+    challengesNotifDot:      document.getElementById('challengesNotifDot'),
+    pauseChallengesButton:   document.getElementById('pauseChallengesButton'),
+    pauseChallengesNotifDot: document.getElementById('pauseChallengesNotifDot'),
+    challengesOverlay:       document.getElementById('challengesOverlay'),
+    closeChallengesButton:   document.getElementById('closeChallengesButton'),
+    challengeTabBtns:        document.querySelectorAll('.challenge-tab-btn'),
+    challengeCycleCountdown: document.getElementById('challengeCycleCountdown'),
+    challengeRerollCount:    document.getElementById('challengeRerollCount'),
+    challengesGrid:          document.getElementById('challengesGrid'),
+    toastContainer:          document.getElementById('toastContainer'),
 };
 
 // ─── CONSTANTS ───────────────────────────────────────────────
@@ -270,7 +282,51 @@ const Engine = {
     // ── v5: D-pad pause-menu navigation ──────────────────
     padDpadWasDown:  { up: false, down: false, a: false },
     pauseNavIndex:   0,       // which pause button is currently focused
-};
+
+    // ── v7: per-run telemetry for Challenges System ───────
+    // These reset every startGame() and are read by checkChallengeTelemetry()
+    // after every gameplay event (hit, miss, powerup, etc).
+    runStats: {
+        matchesPlayedLives:   0,
+        matchesPlayedTimed:   0,
+        normalClaysHit:       0,
+        swerveHitsInRow:      0,
+        swerveHitsTotal:      0,
+        swerveHitsNoMissRun:  0,
+        noMissStreak:         0,
+        flameMultiKillBest:   0,
+        cryoHitsThisWindow:   0,
+        cryoNoMissWindow:     true,
+        powerUpsUsedTypes:    new Set(),
+        powerUpsUsedCount:    0,
+        livesLostEarly:       false,
+        wasAtOneLifeEarly:    false,
+        leftHalfHits:         0,
+        rightHalfHits:        0,
+        upperHalfHits:        0,
+        apexHitsInRow:        0,
+        highSpinHits:         0,
+        maxSpeedHits:         0,
+        consecHitsAllSuccess: 0,
+        firstTargetSkipped:   false,
+        firstTargetSeen:      false,
+        cleanSheetScore:      0,
+        cleanSheetBroken:     false,
+        safetyNetSaves:       0,
+        medicUsedAtOneLife:   false,
+        frenzyWindowScore:    0,
+        frenzyWaveClearAll:   true,
+        gamepadUsed:          false,
+        gamepadNonDefault:    false,
+        screenShakeCount:     0,
+        edgeHits:             [],         // recent {x,t} for edge-to-edge tracking
+        simultaneousKills:    0,
+        dangerZoneHits:       0,
+        boundaryMarginHits:   0,
+        multiplierScoreWindow:0,
+        zeroDropStreakActive: true,
+    },
+} ;
 
 // ─── SETTINGS (persisted) ─────────────────────────────────────
 const settings = (() => {
@@ -380,6 +436,582 @@ function consumePack(key) {
     return false;
 }
 
+// ════════════════════════════════════════════════════════════
+// ─── v7: CHALLENGES SYSTEM ─────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// Fully isolated from META_KEY / tsp_settings to avoid any
+// localStorage key collisions. Its own namespace: 'trapShootingPro_challenges'.
+
+const CHALLENGES_KEY = 'trapShootingPro_challenges';
+const WEEK_MS = 604800000; // 168 hours
+
+const DAILY_SLOTS    = 7;
+const WEEKLY_SLOTS   = 7;
+const DAILY_REROLLS  = 3;
+const WEEKLY_REROLLS = 5;
+const MYTHICAL_ROLL_CHANCE = 0.035; // 3.5%
+
+const REWARD_COUNT = { easy: 1, normal: 2, hard: 3, mythical: 4 };
+
+// ── 150 master challenge definitions ──────────────────────────
+// `metric` ties each challenge to a telemetry key tracked during
+// gameplay (see Engine.runStats and checkChallengeTelemetry()).
+// `target` is the numeric goal. `progress` is populated at runtime.
+const CHALLENGE_POOL = [
+    // ── EASY (1-45) ──────────────────────────────────────────
+    { id: 1,   diff: 'easy', title: 'Clay Smash',          desc: 'Destroy a total of 25 standard clays across any match format.',                         metric: 'lifetimeClaysSmashed',       target: 25 },
+    { id: 2,   diff: 'easy', title: 'First Step',           desc: 'Play 2 complete matches from start to finish in Lives Mode.',                          metric: 'lifetimeMatchesLives',       target: 2 },
+    { id: 3,   diff: 'easy', title: 'Beat the Clock',       desc: 'Survive for at least 30 seconds in Timed Mode.',                                       metric: 'bestTimedSurvivalSec',       target: 30 },
+    { id: 4,   diff: 'easy', title: 'Warm-Up Streak',       desc: 'Achieve a consecutive hit combo of 5 targets.',                                        metric: 'bestComboEver',              target: 5 },
+    { id: 5,   diff: 'easy', title: 'No Miss Spring',       desc: 'Destroy 5 targets in a row without missing a shot.',                                   metric: 'bestNoMissStreak',           target: 5 },
+    { id: 6,   diff: 'easy', title: 'Double Digit',         desc: 'Reach a score of 30 points in a single Lives Mode game.',                              metric: 'bestLivesScore',             target: 30 },
+    { id: 7,   diff: 'easy', title: 'Cryo Introduction',    desc: 'Trigger the Cryo Freeze power-up at least once during a match.',                       metric: 'lifetimeCryoTriggers',       target: 1 },
+    { id: 8,   diff: 'easy', title: 'Casual Play',          desc: 'Spend a total of 3 minutes actively playing the game.',                                metric: 'lifetimePlayTimeSec',        target: 180 },
+    { id: 9,   diff: 'easy', title: 'Safety First',         desc: 'Have your Safety Net power-up absorb a dropped target.',                               metric: 'lifetimeSafetyNetSaves',     target: 1 },
+    { id: 10,  diff: 'easy', title: 'Boom Town',            desc: 'Destroy 3 targets using a single Flame Rounds explosion.',                             metric: 'bestFlameMultiKill',         target: 3 },
+    { id: 11,  diff: 'easy', title: 'Greenhorn Hunter',     desc: 'Complete a match on Easy difficulty without altering settings.',                       metric: 'lifetimeEasyMatchesClean',   target: 1 },
+    { id: 12,  diff: 'easy', title: 'Double Harvest',       desc: 'Score points while a Multiplier power-up is actively running.',                        metric: 'lifetimeMultiplierScore',    target: 1 },
+    { id: 13,  diff: 'easy', title: 'Time Collector',       desc: 'Accumulate a total score of 50 points across multiple Timed matches.',                 metric: 'lifetimeTimedScore',         target: 50 },
+    { id: 14,  diff: 'easy', title: 'Quick Reflex',         desc: 'Hit a target within 0.5 seconds of it spawning on the canvas.',                        metric: 'lifetimeQuickHits',          target: 1 },
+    { id: 15,  diff: 'easy', title: 'Consistent Gun',       desc: 'Maintain a final match accuracy rating of at least 50%.',                              metric: 'bestAccuracyMatch',          target: 50 },
+    { id: 16,  diff: 'easy', title: 'Clay Sweeper',         desc: 'Clear an entire visible wave of targets before any hit the floor.',                    metric: 'lifetimeWavesCleared',       target: 1 },
+    { id: 17,  diff: 'easy', title: 'Vault Raider',         desc: 'Claim your Daily Vault reward and immediately hop into a match.',                      metric: 'lifetimeVaultThenMatch',     target: 1 },
+    { id: 18,  diff: 'easy', title: 'First Fire',           desc: 'Launch a match using any custom crosshair setting (Classic, Dot, or Circle).',         metric: 'lifetimeMatchesAnyStarted',  target: 1 },
+    { id: 19,  diff: 'easy', title: 'Medic Call',           desc: 'Activate a Medic Clay while down to your absolute final life.',                        metric: 'lifetimeMedicAtOneLife',     target: 1 },
+    { id: 20,  diff: 'easy', title: 'Frenzy Farmer',        desc: 'Earn at least 15 points during a single Frenzy wave.',                                 metric: 'bestFrenzyWindowScore',      target: 15 },
+    { id: 21,  diff: 'easy', title: 'High Altitude',        desc: 'Shoot 10 targets while they are in the top 25% of the screen.',                        metric: 'lifetimeUpperHalfHits',      target: 10 },
+    { id: 22,  diff: 'easy', title: 'The Adjuster',         desc: 'Modify any gamepad or mouse sensitivity option in the Settings menu.',                 metric: 'lifetimeSensitivityChanged', target: 1 },
+    { id: 23,  diff: 'easy', title: 'Swerve Survivor',      desc: 'Successfully track and shoot 3 Swerve targets.',                                       metric: 'lifetimeSwerveHits',         target: 3 },
+    { id: 24,  diff: 'easy', title: 'Early Exit',            desc: 'Destroy 5 targets before they cross past the horizontal center line.',                metric: 'lifetimeUpperHalfHits',      target: 5 },
+    { id: 25,  diff: 'easy', title: 'Bullet Conservation',  desc: 'Finish a game having fired fewer than 40 shots total.',                                metric: 'lifetimeLowShotMatches',     target: 1 },
+    { id: 26,  diff: 'easy', title: 'Endurance Rookie',     desc: 'Keep a single match going for at least 45 seconds.',                                   metric: 'bestMatchDurationSec',       target: 45 },
+    { id: 27,  diff: 'easy', title: 'Double Down',          desc: 'Destroy two targets within one second of each other using normal ammo.',               metric: 'lifetimeQuickDoubles',       target: 1 },
+    { id: 28,  diff: 'easy', title: 'Pacifist Start',       desc: 'Let the very first target of a match drop safely without shooting.',                   metric: 'lifetimeFirstTargetSkipped', target: 1 },
+    { id: 29,  diff: 'easy', title: 'Score Padder',         desc: 'Reach a total lifetime cumulative score of 200 points.',                                metric: 'lifetimeScore',              target: 200 },
+    { id: 30,  diff: 'easy', title: 'No Panicking',         desc: 'Hit a target while the screen is flashing its low-altitude warning.',                  metric: 'lifetimeDangerZoneHits',     target: 1 },
+    { id: 31,  diff: 'easy', title: 'Left Side Master',     desc: 'Shoot 15 targets that spawned on the left half of the canvas.',                        metric: 'lifetimeLeftHalfHits',       target: 15 },
+    { id: 32,  diff: 'easy', title: 'Right Side Master',    desc: 'Shoot 15 targets that spawned on the right half of the canvas.',                       metric: 'lifetimeRightHalfHits',      target: 15 },
+    { id: 33,  diff: 'easy', title: 'Controller Test',      desc: 'Play a full match utilizing any non-default gamepad layout preset.',                   metric: 'lifetimeNonDefaultPadMatch', target: 1 },
+    { id: 34,  diff: 'easy', title: 'Steady Pointer',       desc: 'Fire 10 consecutive shots that all make successful contact.',                          metric: 'bestConsecHitsAllSuccess',   target: 10 },
+    { id: 35,  diff: 'easy', title: 'Combo Starter',        desc: 'Reach a 3x combo modifier during a Lives match.',                                      metric: 'bestLivesCombo',             target: 3 },
+    { id: 36,  diff: 'easy', title: 'Changelog Reader',     desc: 'Open the "What\'s New" modal to inspect the latest engine tweaks.',                    metric: 'lifetimeChangelogOpened',    target: 1 },
+    { id: 37,  diff: 'easy', title: 'Sound Check',          desc: 'Complete a match with the procedural Tone.js sound framework active.',                 metric: 'lifetimeMatchesWithAudio',   target: 1 },
+    { id: 38,  diff: 'easy', title: 'Frenzy Participant',   desc: 'Activate a Frenzy pack in Timed mode before the clock hits 30s.',                      metric: 'lifetimeEarlyFrenzy',        target: 1 },
+    { id: 39,  diff: 'easy', title: 'Clay Shatter',         desc: 'Trigger high-density particle breaks on 10 consecutive targets.',                      metric: 'bestHighDensityStreak',      target: 10 },
+    { id: 40,  diff: 'easy', title: 'Clean Sheet',          desc: 'Reach 15 points before incurring your very first miss or life drop.',                  metric: 'lifetimeCleanSheet15',       target: 1 },
+    { id: 41,  diff: 'easy', title: 'Halfway Mark',         desc: 'Survive past the 40-second dynamic ramping difficulty threshold.',                     metric: 'bestMatchDurationSec',       target: 40 },
+    { id: 42,  diff: 'easy', title: 'Explosive Finale',     desc: 'Use a Flame Round pack as your final action right before Game Over.',                  metric: 'lifetimeFlameFinale',        target: 1 },
+    { id: 43,  diff: 'easy', title: 'Easy Run',             desc: 'Complete an entire Lives Mode match on Easy difficulty scoring over 40 points.',        metric: 'bestEasyLivesScore',         target: 40 },
+    { id: 44,  diff: 'easy', title: 'No Shield Needed',     desc: 'Win or complete a match without relying on a Safety Net pack.',                        metric: 'lifetimeMatchesNoSafetyNet', target: 1 },
+    { id: 45,  diff: 'easy', title: 'Quick Tap',            desc: 'Hit a target cleanly before it reaches the maximum apex of its arc.',                  metric: 'lifetimeQuickHits',          target: 3 },
+
+    // ── NORMAL (46-90) ───────────────────────────────────────
+    { id: 46,  diff: 'normal', title: 'Marksman Instinct',    desc: 'Achieve a total match accuracy rating of 75% or higher.',                              metric: 'bestAccuracyMatch',          target: 75 },
+    { id: 47,  diff: 'normal', title: 'Swerve Annihilator',   desc: 'Hit a total of 15 Swerve targets across your daily matches.',                          metric: 'lifetimeSwerveHits',         target: 15 },
+    { id: 48,  diff: 'normal', title: 'Double Combo',         desc: 'Reach and hold a consecutive hit combo of 15.',                                       metric: 'bestComboEver',              target: 15 },
+    { id: 49,  diff: 'normal', title: 'Centurion Club',       desc: 'Reach an individual match score of 100 points in Lives Mode.',                        metric: 'bestLivesScore',             target: 100 },
+    { id: 50,  diff: 'normal', title: 'Time Extender',        desc: 'Score 80 points in a single Timed Mode match.',                                       metric: 'bestTimedScore',             target: 80 },
+    { id: 51,  diff: 'normal', title: 'Deep Freeze Precision',desc: 'Shatter 8 targets during a single Cryo Freeze slowdown window.',                      metric: 'bestCryoWindowHits',         target: 8 },
+    { id: 52,  diff: 'normal', title: 'Chain Reaction',       desc: 'Detonate a Flame Round that catches 4 or more targets in its AoE radius.',             metric: 'bestFlameMultiKill',         target: 4 },
+    { id: 53,  diff: 'normal', title: 'Perfect Ramping',      desc: 'Survive the full 80-second dynamic difficulty ramping sequence.',                     metric: 'bestMatchDurationSec',       target: 80 },
+    { id: 54,  diff: 'normal', title: 'Normal Regular',       desc: 'Complete a Lives Mode match on Normal difficulty with 0 lives lost.',                 metric: 'lifetimeFlawlessNormalLives',target: 1 },
+    { id: 55,  diff: 'normal', title: 'Score Multitasking',   desc: 'Secure a 5x combo multiplier while a Score Multiplier item is active.',                metric: 'bestComboDuringMultiplier',  target: 5 },
+    { id: 56,  diff: 'normal', title: 'Iron Core',            desc: 'Complete a match without letting a single clay hit the bottom danger boundary.',      metric: 'lifetimeZeroDropMatches',    target: 1 },
+    { id: 57,  diff: 'normal', title: 'Frenzy Frenzy',        desc: 'Secure 40 points inside Timed Mode strictly using Frenzy triggers.',                  metric: 'bestFrenzyWindowScore',      target: 40 },
+    { id: 58,  diff: 'normal', title: 'Apex Predator',        desc: 'Shoot 20 clays precisely at the apex of their physics gravity inversion.',            metric: 'lifetimeApexHits',           target: 20 },
+    { id: 59,  diff: 'normal', title: 'No Flukes',            desc: 'Achieve 3 separate matches in a row with accuracy tracking over 65%.',                metric: 'bestAccuracyStreakMatches',  target: 3 },
+    { id: 60,  diff: 'normal', title: 'Patient Gunner',       desc: 'Wait until a target enters the lower warning threshold before shooting it.',          metric: 'lifetimeDangerZoneHits',     target: 3 },
+    { id: 61,  diff: 'normal', title: 'Inventory Rotation',   desc: 'Deploy three completely different power-up packs in a single match.',                 metric: 'bestPowerUpTypesPerMatch',   target: 3 },
+    { id: 62,  diff: 'normal', title: 'Swerve Hunter',        desc: 'Destroy 5 Swerve targets in a single run without missing a shot.',                    metric: 'bestSwerveNoMissStreak',     target: 5 },
+    { id: 63,  diff: 'normal', title: 'High Roller',          desc: 'Score 150 cumulative points over a span of 3 back-to-back matches.',                  metric: 'best3MatchScoreSum',         target: 150 },
+    { id: 64,  diff: 'normal', title: 'Margin Master',        desc: 'Destroy 15 clays that fly within the 80px smart spawn boundary area.',                metric: 'lifetimeBoundaryMarginHits', target: 15 },
+    { id: 65,  diff: 'normal', title: 'Clustering',           desc: 'Shoot 3 targets within a rolling window of 1.5 seconds.',                             metric: 'lifetimeClusterKills',       target: 1 },
+    { id: 66,  diff: 'normal', title: 'Healthy Condition',    desc: 'Regenerate 2 lives using Medic Clays within one standard match.',                     metric: 'bestMedicUsesPerMatch',      target: 2 },
+    { id: 67,  diff: 'normal', title: 'Trigger Discipline',   desc: 'Complete a 60-second Timed match firing fewer than 50 total shots.',                  metric: 'lifetimeDisciplinedMatches', target: 1 },
+    { id: 68,  diff: 'normal', title: 'Speed Tracker',        desc: 'Successfully destroy a target moving at maximum launch velocity.',                    metric: 'lifetimeMaxSpeedHits',       target: 1 },
+    { id: 69,  diff: 'normal', title: 'Half Century',         desc: 'Reach a 50-point milestone before the difficulty timer hits 40 seconds.',             metric: 'lifetimeFastFifty',          target: 1 },
+    { id: 70,  diff: 'normal', title: 'Screen Shaker',        desc: 'Trigger 5 independent camera-shake explosion events in one match.',                  metric: 'bestShakeEventsPerMatch',    target: 5 },
+    { id: 71,  diff: 'normal', title: 'Persistent Execution', desc: 'Play the game across 2 consecutive challenge cycles.',                                metric: 'lifetimeCyclesPlayed',       target: 2 },
+    { id: 72,  diff: 'normal', title: 'Unstoppable Arc',      desc: 'Shoot down 10 targets that have a high randomized spin velocity.',                    metric: 'lifetimeHighSpinHits',       target: 10 },
+    { id: 73,  diff: 'normal', title: 'Pure Gunplay',         desc: 'Reach 60 points without triggering a single inventory power-up item.',                metric: 'bestNoPowerUpScore',         target: 60 },
+    { id: 74,  diff: 'normal', title: 'Boundary Guardian',    desc: 'Hit 10 targets while they are inside the dynamic red flash danger zone.',             metric: 'lifetimeDangerZoneHits',     target: 10 },
+    { id: 75,  diff: 'normal', title: 'Equal Opportunity',    desc: 'Score 30 points on the left half and 30 points on the right half of the screen.',     metric: 'lifetimeBalancedScore',      target: 1 },
+    { id: 76,  diff: 'normal', title: 'Frenzy Overload',      desc: 'Stack two Frenzy power-ups back-to-back in a Timed Mode match.',                      metric: 'lifetimeFrenzyStacks',       target: 1 },
+    { id: 77,  diff: 'normal', title: 'Glancing Blow',        desc: 'Shoot 5 targets at the exact horizontal boundary limit of the canvas.',               metric: 'lifetimeBoundaryMarginHits', target: 5 },
+    { id: 78,  diff: 'normal', title: 'Resourceful',          desc: 'Empty your active sidebar inventory completely during a high-stakes run.',            metric: 'lifetimeInventoryEmptied',   target: 1 },
+    { id: 79,  diff: 'normal', title: 'Streak Saver',         desc: 'Use a Safety Net power-up to successfully preserve a combo higher than 10.',          metric: 'lifetimeSafetyNetComboSave', target: 1 },
+    { id: 80,  diff: 'normal', title: 'Tactical Reload',      desc: 'Fire exactly 5 shots, hit 5 targets, and pause for 3 seconds without firing.',        metric: 'lifetimeTacticalReload',     target: 1 },
+    { id: 81,  diff: 'normal', title: 'Swerve Sweep',         desc: 'Destroy two Swerve targets simultaneously present on the screen.',                    metric: 'lifetimeSwerveSweep',        target: 1 },
+    { id: 82,  diff: 'normal', title: 'Time Attack Specialist',desc:'Break 100 targets across all Timed Mode matches today.',                              metric: 'lifetimeTimedClaysHit',      target: 100 },
+    { id: 83,  diff: 'normal', title: 'Sky Master',           desc: 'Destroy 25 targets before they drop below the upper 50% coordinate grid.',            metric: 'lifetimeUpperHalfHits',      target: 25 },
+    { id: 84,  diff: 'normal', title: 'No Drops Allowed',     desc: 'Play a full Normal Difficulty match without letting a single clay drop.',             metric: 'lifetimeZeroDropMatches',    target: 1 },
+    { id: 85,  diff: 'normal', title: 'Fast Hands',           desc: 'Hit a target within 0.3 seconds of its audio Tone.js launch sound.',                  metric: 'lifetimeQuickHits',          target: 5 },
+    { id: 86,  diff: 'normal', title: 'Calculated Ramping',   desc: 'Reach a score of 120 as the engine hits maximum difficulty scaling.',                 metric: 'lifetimeMaxRampScore',       target: 120 },
+    { id: 87,  diff: 'normal', title: 'Double Multiplier Run',desc: 'Activate two separate Score Multipliers within one instance.',                       metric: 'lifetimeMultiplierStacks',   target: 1 },
+    { id: 88,  diff: 'normal', title: 'Clean Arc Tracking',   desc: 'Hit 15 targets in a row while they are on their downward falling path.',              metric: 'bestDescendingHitStreak',    target: 15 },
+    { id: 89,  diff: 'normal', title: 'The 75 Club',          desc: 'Accumulate exactly 75 points in under 45 seconds of runtime.',                        metric: 'lifetimeFast75',             target: 1 },
+    { id: 90,  diff: 'normal', title: 'Steady Aim Assist',    desc: 'Complete a match with a controller using sticky aim assist disabled.',                metric: 'lifetimeMatchesAssistOff',   target: 1 },
+
+    // ── HARD (91-135) ────────────────────────────────────────
+    { id: 91,  diff: 'hard', title: 'Sniper Execution',       desc: 'Finish an entire Lives Mode match with an accuracy score of 95% or higher.',           metric: 'bestAccuracyMatch',          target: 95 },
+    { id: 92,  diff: 'hard', title: 'Immortal Gunner',        desc: 'Reach a score of 250 in Lives Mode on Normal Difficulty.',                             metric: 'bestNormalLivesScore',       target: 250 },
+    { id: 93,  diff: 'hard', title: 'Grand Master Streak',    desc: 'Build and maintain a flawless consecutive hit combo of 40.',                          metric: 'bestComboEver',              target: 40 },
+    { id: 94,  diff: 'hard', title: 'Swerve Apocalypse',      desc: 'Destroy 12 Swerve targets in a single match without drop penalties.',                 metric: 'bestSwerveNoMissStreak',     target: 12 },
+    { id: 95,  diff: 'hard', title: 'Clock Eraser',           desc: 'Achieve a score of 160 or higher in a single Timed Mode match.',                      metric: 'bestTimedScore',             target: 160 },
+    { id: 96,  diff: 'hard', title: 'Flawless Ramping',       desc: 'Stay alive for 120 seconds straight as target spawns reach maximum speeds.',          metric: 'bestMatchDurationSec',       target: 120 },
+    { id: 97,  diff: 'hard', title: 'Collateral Damage',      desc: 'Secure 3 consecutive multi-kills using individual Flame Round bursts.',               metric: 'bestFlameMultiKillStreak',   target: 3 },
+    { id: 98,  diff: 'hard', title: 'Cryo Perfection',        desc: 'Destroy 12 targets during a single Cryo Freeze window without missing once.',         metric: 'bestCryoWindowHits',         target: 12 },
+    { id: 99,  diff: 'hard', title: 'Zero Shield Legend',     desc: 'Reach a score of 150 in Lives Mode without owning or using a Safety Net.',             metric: 'bestNoSafetyNetLivesScore',  target: 150 },
+    { id: 100, diff: 'hard', title: 'The Overachiever',       desc: 'Accumulate a grand total of 500 points across your session today.',                   metric: 'sessionScore',               target: 500 },
+    { id: 101, diff: 'hard', title: 'Speed Demon',            desc: 'Hit 5 consecutive targets within 0.25 seconds of their initial canvas spawn.',        metric: 'bestQuickHitStreak',         target: 5 },
+    { id: 102, diff: 'hard', title: 'Crisis Management',      desc: 'Win a Lives match after being reduced to 1 life within the first 20 seconds.',        metric: 'lifetimeCrisisComebacks',    target: 1 },
+    { id: 103, diff: 'hard', title: 'Multiplier Monopoly',    desc: 'Earn 60 points strictly within a single 10-second Score Multiplier window.',          metric: 'bestMultiplierWindowScore',  target: 60 },
+    { id: 104, diff: 'hard', title: 'Apex Champion',          desc: 'Shoot 15 consecutive targets exclusively at the apex point of their arcs.',           metric: 'bestApexStreak',             target: 15 },
+    { id: 105, diff: 'hard', title: 'Perfect Split',          desc: 'Maintain identical accuracy percentages across both mobile and desktop profiles.',    metric: 'lifetimeCrossProfileMatch',  target: 1 },
+    { id: 106, diff: 'hard', title: 'Swerve Masterclass',     desc: 'Hit 5 Swerve targets in a row while the game clock is past 60 seconds.',              metric: 'bestLateSwerveStreak',       target: 5 },
+    { id: 107, diff: 'hard', title: 'Frenzy Mastery',         desc: 'Clear 100% of all targets spawned during a dual-Frenzy wave in Timed Mode.',          metric: 'lifetimeDualFrenzyClear',    target: 1 },
+    { id: 108, diff: 'hard', title: 'Unbroken Focus',         desc: 'Play for 3 minutes straight across matches without letting your combo drop to 0.',    metric: 'bestComboUptimeSec',         target: 180 },
+    { id: 109, diff: 'hard', title: 'Danger Zone Specialist', desc: 'Shoot 20 targets sequentially while they reside in the lower warning zone.',          metric: 'lifetimeDangerZoneHits',     target: 20 },
+    { id: 110, diff: 'hard', title: 'Ammunition Conservation',desc: 'Score 100 points using fewer than 105 total clicks or screen taps.',                  metric: 'lifetimeEfficientHundred',   target: 1 },
+    { id: 111, diff: 'hard', title: 'Edge-to-Edge',           desc: 'Shoot a target on the extreme left, then one on the extreme right within 0.5s.',       metric: 'lifetimeEdgeToEdge',         target: 1 },
+    { id: 112, diff: 'hard', title: 'The 300 Club',           desc: 'Reach a massive milestone score of 300 points across any single run.',                metric: 'bestSingleMatchScore',       target: 300 },
+    { id: 113, diff: 'hard', title: 'Maximum Chaos',          desc: 'Have 8 targets simultaneously destroyed on screen using a Flame Round chain.',        metric: 'bestFlameMultiKill',         target: 8 },
+    { id: 114, diff: 'hard', title: 'Untouchable',            desc: 'Do not let a single target touch the lower half of the screen for 45 seconds.',       metric: 'bestUntouchableSec',         target: 45 },
+    { id: 115, diff: 'hard', title: 'Full Vault Hoarder',     desc: 'Max out every single item slot in your persistent inventory to 3/3.',                 metric: 'lifetimeFullInventory',      target: 1 },
+    { id: 116, diff: 'hard', title: 'No Room for Error',      desc: 'Achieve a 25-hit combo on Normal Difficulty with only 1 life remaining.',             metric: 'bestComboAtOneLife',         target: 25 },
+    { id: 117, diff: 'hard', title: 'Timed Carnage',          desc: 'Hit 4 targets simultaneously with normal shots by lining up their tracking paths.',  metric: 'lifetimeSimultaneousKills',  target: 4 },
+    { id: 118, diff: 'hard', title: 'High Velocity Sniping',  desc: 'Hit 10 targets in a row that are traveling at physics speed caps.',                  metric: 'bestMaxSpeedHitStreak',      target: 10 },
+    { id: 119, diff: 'hard', title: 'The Perfect Minute',     desc: 'Play a full 60-second Timed Mode run without recording a single missed shot.',       metric: 'lifetimePerfectMinute',      target: 1 },
+    { id: 120, diff: 'hard', title: 'Rapid Engagement',       desc: 'Clear a 6-target cluster spawn in under 2 seconds without power-ups.',                metric: 'lifetimeRapidClusterClear',  target: 1 },
+    { id: 121, diff: 'hard', title: 'Spin Cycle Master',      desc: 'Shoot 20 targets that possess maximum randomized spin velocity metrics.',            metric: 'lifetimeHighSpinHits',       target: 20 },
+    { id: 122, diff: 'hard', title: 'Deep Run Efficiency',    desc: 'Reach a 30x combo after the dynamic difficulty scaling has fully peaked.',            metric: 'bestComboAfterPeakRamp',     target: 30 },
+    { id: 123, diff: 'hard', title: 'Double Danger Shield',   desc: 'Let two targets hit the baseline simultaneously while protected by Safety Net.',     metric: 'lifetimeDoubleSafetyNetSave',target: 1 },
+    { id: 124, diff: 'hard', title: 'The Minimalist',         desc: 'Achieve a 100+ score using only the default crosshair reticle with no assistance.',  metric: 'bestDefaultCrosshairScore',  target: 100 },
+    { id: 125, diff: 'hard', title: 'Point Maximizer',        desc: 'Combine a 10x combo streak with a Score Multiplier item for its full duration.',     metric: 'lifetimeComboMultiplierCombo',target: 1 },
+    { id: 126, diff: 'hard', title: 'Swerve Denial',          desc: 'Shoot every Swerve target before they have a chance to make their trajectory shift.',metric: 'lifetimeInstantSwerveKills', target: 1 },
+    { id: 127, diff: 'hard', title: 'Extended Attack',        desc: 'Score 200 cumulative points inside Timed Mode within a two-match limit.',            metric: 'best2MatchTimedScoreSum',    target: 200 },
+    { id: 128, diff: 'hard', title: 'Flawless Normal',        desc: 'Complete a Normal Difficulty match with a 100% perfect target clear rate.',           metric: 'lifetimePerfectClearNormal', target: 1 },
+    { id: 129, diff: 'hard', title: 'The Iron Wall',          desc: 'Prevent any clay from dropping below 200 pixels on the vertical grid for 1 minute.',  metric: 'bestIronWallSec',            target: 60 },
+    { id: 130, diff: 'hard', title: 'Blazing Speed',          desc: 'Hit a target moving at peak velocity within the bottom 10% of the canvas safely.',    metric: 'lifetimeMaxSpeedHits',       target: 3 },
+    { id: 131, diff: 'hard', title: 'No Cryo Reliance',       desc: 'Reach 150 points past the maximum ramping interval without using Cryo Freeze.',      metric: 'bestNoCryoLateScore',        target: 150 },
+    { id: 132, diff: 'hard', title: 'Triple Digit Blitz',     desc: 'Score 100 points in Timed Mode with more than 15 seconds remaining on the clock.',   metric: 'lifetimeTripleDigitBlitz',   target: 1 },
+    { id: 133, diff: 'hard', title: 'Precision Burst',        desc: 'Fire 30 shots, record 30 hits, and ensure 10 of them are Swerve variants.',          metric: 'lifetimePrecisionBurst',     target: 1 },
+    { id: 134, diff: 'hard', title: 'Endurance Master',       desc: 'Keep a single continuous match alive for over 150 seconds.',                         metric: 'bestMatchDurationSec',       target: 150 },
+    { id: 135, diff: 'hard', title: 'The Finisher',           desc: 'End a 200+ point match with a flawless 20-hit streak right up to the final target.', metric: 'lifetimeFlawlessFinisher',   target: 1 },
+
+    // ── MYTHICAL (136-150) ───────────────────────────────────
+    { id: 136, diff: 'mythical', title: 'God Mode Tracking',     desc: 'Reach a score of 500 in Lives Mode on Normal Difficulty with 100% accuracy.',              metric: 'bestPerfectNormalLivesScore',target: 500 },
+    { id: 137, diff: 'mythical', title: 'The Untouchable Phoenix',desc:'Survive for 180 seconds continuously without losing a single life or combo link.',         metric: 'bestFlawlessSurvivalSec',    target: 180 },
+    { id: 138, diff: 'mythical', title: 'Swerve Extinction',     desc: 'Shoot 30 Swerve targets in a single match without registering a single miss.',             metric: 'bestSwerveNoMissStreak',     target: 30 },
+    { id: 139, diff: 'mythical', title: 'Time Paradox',          desc: 'Break the 250-point barrier in a single 60-second Timed Mode match.',                      metric: 'bestTimedScore',             target: 250 },
+    { id: 140, diff: 'mythical', title: 'Flawless Century',      desc: 'Reach a consecutive hit combo of exactly 100 without a break.',                           metric: 'bestComboEver',              target: 100 },
+    { id: 141, diff: 'mythical', title: 'The Grid Absolute',     desc: 'Shoot down 50 targets sequentially before they pass the top 33% coordinate grid line.',   metric: 'lifetimeUpperHalfHits',      target: 50 },
+    { id: 142, diff: 'mythical', title: 'Maximum Overdrive',     desc: 'Maintain a 10x combo for over 60 seconds of active, fully-ramped game clock time.',       metric: 'bestComboUptimeSec',         target: 60 },
+    { id: 143, diff: 'mythical', title: 'The Catalyst',          desc: 'Trigger Flame Rounds, Cryo Freeze, and a Score Multiplier all simultaneously while maintaining a 30x combo.', metric: 'lifetimeTripleStackCombo', target: 1 },
+    { id: 144, diff: 'mythical', title: 'Annihilation Protocol', desc: 'Clear 300 total targets across all game formats within a single challenge cycle window.', metric: 'cycleClaysSmashed',          target: 300 },
+    { id: 145, diff: 'mythical', title: 'Apex Divinity',         desc: 'Destroy 30 consecutive clays within 0.1 seconds of them reaching their mathematical physics apex.', metric: 'bestApexStreak',      target: 30 },
+    { id: 146, diff: 'mythical', title: 'Zero-G Phantom',        desc: 'Clear an entire match past the 90-second mark using absolutely no assistive UI tracking indicators.', metric: 'bestMatchDurationSec', target: 90 },
+    { id: 147, diff: 'mythical', title: 'The Perfect Session',   desc: 'Play 5 consecutive matches, averaging over 150 points per match with an overall accuracy floor of 90%.', metric: 'best5MatchAvgScore', target: 150 },
+    { id: 148, diff: 'mythical', title: 'Frenzy Cataclysm',      desc: 'Farm 80 points during a single Frenzy window by utilizing overlapping trajectory blast mechanics.', metric: 'bestFrenzyWindowScore', target: 80 },
+    { id: 149, diff: 'mythical', title: 'The Boundary Legend',   desc: 'Clear 40 targets while they are inside the final 5 pixels of the dynamic danger zone boundary.', metric: 'lifetimeBoundaryMarginHits', target: 40 },
+    { id: 150, diff: 'mythical', title: 'Engine Overlord v5.1',  desc: 'Complete a Normal match scoring 400+ points, maxing out your dynamic difficulty modifier completely without dropping below 2 lives.', metric: 'bestOverlordRun', target: 400 },
+];
+
+// ── Persistent challenge progress + cycle storage ─────────────
+function loadChallengeData() {
+    const defaults = {
+        daily:  { cycleStart: null, activeIds: [], rerollsLeft: DAILY_REROLLS,  claimed: {} },
+        weekly: { cycleStart: null, activeIds: [], rerollsLeft: WEEKLY_REROLLS, claimed: {} },
+        // lifetime/session telemetry counters — keyed by challenge `metric`
+        stats: {},
+    };
+    try {
+        const stored = JSON.parse(localStorage.getItem(CHALLENGES_KEY) || '{}');
+        return {
+            daily:  { ...defaults.daily,  ...(stored.daily  || {}) },
+            weekly: { ...defaults.weekly, ...(stored.weekly || {}) },
+            stats:  { ...defaults.stats,  ...(stored.stats  || {}) },
+        };
+    } catch { return defaults; }
+}
+
+const ChallengeData = loadChallengeData();
+
+function saveChallengeData() {
+    try { localStorage.setItem(CHALLENGES_KEY, JSON.stringify(ChallengeData)); } catch {}
+}
+
+function getChallengeById(id) { return CHALLENGE_POOL.find(c => c.id === id); }
+
+// ── Quota-balanced random selection ───────────────────────────
+// Guarantees ≥1 easy, ≥1 normal, ≥1 hard among the 7 active slots.
+// Mythical only enters via a 3.5% roll per remaining slot.
+function generateChallengeSet(excludeIds = []) {
+    const pool = CHALLENGE_POOL.filter(c => !excludeIds.includes(c.id));
+    const byDiff = {
+        easy:     pool.filter(c => c.diff === 'easy'),
+        normal:   pool.filter(c => c.diff === 'normal'),
+        hard:     pool.filter(c => c.diff === 'hard'),
+        mythical: pool.filter(c => c.diff === 'mythical'),
+    };
+
+    const pickRandom = (arr) => arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
+    const picked = [];
+    const pickedIds = new Set();
+
+    const tryPick = (diffArr) => {
+        const candidates = diffArr.filter(c => !pickedIds.has(c.id));
+        const choice = pickRandom(candidates);
+        if (choice) { picked.push(choice); pickedIds.add(choice.id); }
+        return choice;
+    };
+
+    // Guaranteed minimums
+    tryPick(byDiff.easy);
+    tryPick(byDiff.normal);
+    tryPick(byDiff.hard);
+
+    // Fill remaining slots — each has a MYTHICAL_ROLL_CHANCE shot,
+    // otherwise drawn from a blended easy/normal/hard pool.
+    const blended = [...byDiff.easy, ...byDiff.normal, ...byDiff.hard];
+    while (picked.length < DAILY_SLOTS) {
+        let choice = null;
+        if (Math.random() < MYTHICAL_ROLL_CHANCE && byDiff.mythical.length) {
+            choice = tryPick(byDiff.mythical);
+        }
+        if (!choice) choice = tryPick(blended);
+        if (!choice) break; // pool exhausted (safety)
+    }
+
+    return picked.map(c => c.id);
+}
+
+// ── Cycle management — regenerates the active set when the window expires ──
+function ensureChallengeCycle(scope) {
+    const data = ChallengeData[scope];
+    const periodMs = scope === 'daily' ? DAY_MS : WEEK_MS;
+    const now = Date.now();
+
+    const expired = data.cycleStart == null || (now - data.cycleStart) >= periodMs;
+    if (expired || !data.activeIds || data.activeIds.length === 0) {
+        data.cycleStart   = now;
+        data.activeIds    = generateChallengeSet();
+        data.rerollsLeft  = scope === 'daily' ? DAILY_REROLLS : WEEKLY_REROLLS;
+        data.claimed      = {};
+        saveChallengeData();
+    }
+}
+
+function msUntilCycleReset(scope) {
+    const data = ChallengeData[scope];
+    const periodMs = scope === 'daily' ? DAY_MS : WEEK_MS;
+    if (data.cycleStart == null) return 0;
+    return Math.max(0, periodMs - (Date.now() - data.cycleStart));
+}
+
+// ── Reroll a single card for an equivalent-difficulty replacement ────────
+function rerollChallenge(scope, challengeId) {
+    const data = ChallengeData[scope];
+    if (data.rerollsLeft <= 0) return false;
+    if (data.claimed[challengeId]) return false; // can't reroll an already-claimed slot
+
+    const current = getChallengeById(challengeId);
+    if (!current) return false;
+
+    const sameDiffPool = CHALLENGE_POOL.filter(c =>
+        c.diff === current.diff && !data.activeIds.includes(c.id));
+    if (sameDiffPool.length === 0) return false;
+
+    const replacement = sameDiffPool[Math.floor(Math.random() * sameDiffPool.length)];
+    const idx = data.activeIds.indexOf(challengeId);
+    if (idx === -1) return false;
+
+    data.activeIds[idx] = replacement.id;
+    data.rerollsLeft--;
+    delete data.claimed[challengeId];
+    saveChallengeData();
+    return true;
+}
+
+// ── Progress lookup — reads the persisted stat for a challenge's metric ──
+function getChallengeProgress(challenge) {
+    return Math.min(challenge.target, ChallengeData.stats[challenge.metric] || 0);
+}
+
+function isChallengeComplete(challenge) {
+    return getChallengeProgress(challenge) >= challenge.target;
+}
+
+// ── Claim a completed challenge — grants random pack reward(s) ───────────
+function claimChallenge(scope, challengeId) {
+    const data = ChallengeData[scope];
+    const challenge = getChallengeById(challengeId);
+    if (!challenge || data.claimed[challengeId]) return null;
+    if (!isChallengeComplete(challenge)) return null;
+
+    const rewardCount = REWARD_COUNT[challenge.diff] || 1;
+    const grantedKeys = [];
+    for (let i = 0; i < rewardCount; i++) {
+        const key = rollVaultReward(); // respects the same 3-cap reroll logic as the Vault
+        if (key) {
+            grantPack(key);
+            grantedKeys.push(key);
+        } else {
+            // Inventory fully maxed — bank overflow bonus per spec (cap check)
+            Meta.pendingOverflowBonus = (Meta.pendingOverflowBonus || 0) + OVERFLOW_BONUS_SCORE;
+            saveMeta();
+        }
+    }
+
+    data.claimed[challengeId] = true;
+    saveChallengeData();
+
+    return { challenge, grantedKeys };
+}
+
+// ── Aggregate notification check — any unclaimed-but-complete challenge? ─
+function hasUnclaimedChallenges() {
+    for (const scope of ['daily', 'weekly']) {
+        ensureChallengeCycle(scope);
+        const data = ChallengeData[scope];
+        for (const id of data.activeIds) {
+            const c = getChallengeById(id);
+            if (c && !data.claimed[id] && isChallengeComplete(c)) return true;
+        }
+    }
+    return false;
+}
+
+function updateChallengesNotifDots() {
+    const show = hasUnclaimedChallenges();
+    if (DOM.challengesNotifDot)      DOM.challengesNotifDot.classList.toggle('hidden', !show);
+    if (DOM.pauseChallengesNotifDot) DOM.pauseChallengesNotifDot.classList.toggle('hidden', !show);
+}
+
+// ── Telemetry bump helper — increments a persisted stat and re-evaluates ──
+function bumpChallengeStat(metric, amount = 1, mode = 'add') {
+    const cur = ChallengeData.stats[metric] || 0;
+    if (mode === 'add')      ChallengeData.stats[metric] = cur + amount;
+    else if (mode === 'max') ChallengeData.stats[metric] = Math.max(cur, amount);
+    else if (mode === 'set') ChallengeData.stats[metric] = amount;
+    saveChallengeData();
+    checkForNewlyCompletedChallenges(metric);
+}
+
+// ── Real-time completion detection → fires the Steam-style toast ─────────
+const _toastedThisSession = new Set(); // prevents duplicate toasts per challenge per session
+
+function checkForNewlyCompletedChallenges(changedMetric) {
+    if (Engine.state !== GameState.PLAYING) {
+        updateChallengesNotifDots();
+        return;
+    }
+    for (const scope of ['daily', 'weekly']) {
+        const data = ChallengeData[scope];
+        if (!data.activeIds) continue;
+        for (const id of data.activeIds) {
+            if (data.claimed[id]) continue;
+            const c = getChallengeById(id);
+            if (!c || c.metric !== changedMetric) continue;
+            if (isChallengeComplete(c) && !_toastedThisSession.has(`${scope}:${id}`)) {
+                _toastedThisSession.add(`${scope}:${id}`);
+                showAchievementToast(c);
+            }
+        }
+    }
+    updateChallengesNotifDots();
+}
+
+// ════════════════════════════════════════════════════════════
+// ─── v7: STEAM-STYLE TOAST NOTIFICATIONS ─────────────────────
+// ════════════════════════════════════════════════════════════
+
+const DIFF_LABEL_COLOR = {
+    easy:     { label: 'EASY',     color: '#4ade80' },
+    normal:   { label: 'NORMAL',   color: '#facc15' },
+    hard:     { label: 'HARD',     color: '#f87171' },
+    mythical: { label: 'MYTHICAL', color: '#c084fc' },
+};
+
+function showAchievementToast(challenge) {
+    if (!DOM.toastContainer) return;
+    const d = DIFF_LABEL_COLOR[challenge.diff] || DIFF_LABEL_COLOR.easy;
+
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.innerHTML = `
+        <div class="achievement-toast-icon">🏆</div>
+        <div class="flex-1 min-w-0">
+            <div class="achievement-toast-header">CHALLENGE COMPLETED!</div>
+            <div class="achievement-toast-title truncate">${challenge.title}</div>
+            <div class="achievement-toast-diff" style="color:${d.color}">${d.label}</div>
+        </div>
+    `;
+    DOM.toastContainer.appendChild(toast);
+
+    // Slide in
+    requestAnimationFrame(() => toast.classList.add('toast-in'));
+
+    // Light synthesized chime
+    playSound('powerup');
+
+    // Hold 4s, then slide out and remove
+    setTimeout(() => {
+        toast.classList.remove('toast-in');
+        toast.classList.add('toast-out');
+        setTimeout(() => toast.remove(), 450);
+    }, 4000);
+}
+
+// ════════════════════════════════════════════════════════════
+// ─── v7: CHALLENGES OVERLAY UI ────────────────────────────────
+// ════════════════════════════════════════════════════════════
+
+let activeChallengeTab = 'daily';
+let challengeCountdownInterval = null;
+
+function formatCycleCountdown(ms) {
+    const totalSec = Math.ceil(ms / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    if (d > 0) return `${d}d ${pad(h)}h ${pad(m)}m`;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function renderChallengeCard(scope, challengeId) {
+    const c = getChallengeById(challengeId);
+    if (!c) return '';
+
+    const data = ChallengeData[scope];
+    const progress  = getChallengeProgress(c);
+    const complete  = isChallengeComplete(c);
+    const claimed   = !!data.claimed[challengeId];
+    const pct       = Math.min(100, Math.round((progress / c.target) * 100));
+    const d         = DIFF_LABEL_COLOR[c.diff] || DIFF_LABEL_COLOR.easy;
+    const rewardN   = REWARD_COUNT[c.diff] || 1;
+
+    // Pick a representative reward-pack label for the disclosure line
+    const rewardLabel = rewardN > 1 ? `${rewardN}x Random Power-Up Packs` : `1x Random Power-Up Pack`;
+
+    const canReroll = data.rerollsLeft > 0 && !claimed;
+
+    return `
+    <div class="challenge-card diff-${c.diff} ${complete ? 'challenge-complete' : ''}" data-challenge-id="${c.id}" data-scope="${scope}">
+        <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+                <div class="diff-badge diff-${c.diff} mb-1">${d.label}</div>
+                <h4 class="font-bold text-[12px] md:text-sm text-white leading-tight">${c.title}</h4>
+            </div>
+            <button class="challenge-reroll-btn" data-reroll-id="${c.id}" data-reroll-scope="${scope}" ${canReroll ? '' : 'disabled'} title="Reroll this challenge">
+                <i class="fa-solid fa-rotate"></i>
+            </button>
+        </div>
+        <p class="text-[10px] md:text-[11px] text-slate-400 leading-snug">${c.desc}</p>
+        <div class="challenge-progress-track">
+            <div class="challenge-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="flex items-center justify-between text-[9px] md:text-[10px] text-slate-400 font-semibold">
+            <span>${progress} / ${c.target}</span>
+            <span>${pct}%</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-0.5">
+            <span class="text-[9px] md:text-[10px] text-amber-300 font-bold truncate">Reward: ${rewardLabel}</span>
+            <button class="challenge-claim-btn ${complete && !claimed ? 'claim-ready' : ''}"
+                data-claim-id="${c.id}" data-claim-scope="${scope}"
+                ${complete && !claimed ? '' : 'disabled'}>
+                ${claimed ? 'Claimed ✓' : (complete ? 'Claim' : 'Locked')}
+            </button>
+        </div>
+    </div>`;
+}
+
+function renderChallengesGrid() {
+    if (!DOM.challengesGrid) return;
+    ensureChallengeCycle(activeChallengeTab);
+    const data = ChallengeData[activeChallengeTab];
+
+    DOM.challengesGrid.innerHTML = data.activeIds
+        .map(id => renderChallengeCard(activeChallengeTab, id))
+        .join('');
+
+    if (DOM.challengeRerollCount) {
+        DOM.challengeRerollCount.textContent = data.rerollsLeft;
+    }
+
+    updateChallengeCountdown();
+}
+
+function updateChallengeCountdown() {
+    if (!DOM.challengeCycleCountdown) return;
+    DOM.challengeCycleCountdown.textContent = formatCycleCountdown(msUntilCycleReset(activeChallengeTab));
+}
+
+function setActiveChallengeTab(tab) {
+    activeChallengeTab = tab;
+    DOM.challengeTabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.challengeTab === tab);
+    });
+    renderChallengesGrid();
+}
+
+function openChallengesOverlay(fromPause = false) {
+    if (fromPause) {
+        DOM.pauseOverlay.classList.add('hidden');
+    } else {
+        DOM.gameOverlay.classList.add('hidden');
+    }
+    DOM.challengesOverlay.classList.remove('hidden');
+    DOM.challengesOverlay.dataset.returnTo = fromPause ? 'pause' : 'menu';
+
+    ensureChallengeCycle('daily');
+    ensureChallengeCycle('weekly');
+    setActiveChallengeTab(activeChallengeTab);
+
+    clearInterval(challengeCountdownInterval);
+    challengeCountdownInterval = setInterval(updateChallengeCountdown, 1000);
+}
+
+function closeChallengesOverlay() {
+    clearInterval(challengeCountdownInterval);
+    DOM.challengesOverlay.classList.add('hidden');
+    const returnTo = DOM.challengesOverlay.dataset.returnTo;
+    if (returnTo === 'pause' && Engine.state === GameState.PAUSED) {
+        DOM.pauseOverlay.classList.remove('hidden');
+    } else {
+        DOM.gameOverlay.classList.remove('hidden');
+    }
+    updateChallengesNotifDots();
+}
+
+// ── Grid click delegation: handles reroll + claim buttons ────────────────
+function handleChallengesGridClick(e) {
+    const rerollBtn = e.target.closest('.challenge-reroll-btn');
+    if (rerollBtn && !rerollBtn.disabled) {
+        const id    = parseInt(rerollBtn.dataset.rerollId, 10);
+        const scope = rerollBtn.dataset.rerollScope;
+        if (rerollChallenge(scope, id)) {
+            renderChallengesGrid();
+        }
+        return;
+    }
+
+    const claimBtn = e.target.closest('.challenge-claim-btn');
+    if (claimBtn && !claimBtn.disabled) {
+        const id    = parseInt(claimBtn.dataset.claimId, 10);
+        const scope = claimBtn.dataset.claimScope;
+        const result = claimChallenge(scope, id);
+        if (result) {
+            refreshSidebarUI();
+            renderChallengesGrid();
+            updateChallengesNotifDots();
+        }
+        return;
+    }
+}
+
 // ─── HIGH SCORES ─────────────────────────────────────────────
 const HighScore = {
     get(mode)      { try { return parseInt(localStorage.getItem(`tsp_hs_${mode}`)) || 0; } catch { return 0; } },
@@ -473,6 +1105,11 @@ function shouldSpawnSwerve() {
 function triggerShake(intensity = 8, duration = 18) {
     Engine.shake.intensity = intensity;
     Engine.shake.duration  = duration;
+    // v7: telemetry — independent camera-shake events this match
+    if (Engine.state === GameState.PLAYING) {
+        Engine.runStats.screenShakeCount = (Engine.runStats.screenShakeCount || 0) + 1;
+        bumpChallengeStat('bestShakeEventsPerMatch', Engine.runStats.screenShakeCount, 'max');
+    }
 }
 
 function applyShake() {
@@ -880,6 +1517,7 @@ function executeShot() {
     const isBlast    = Engine.powerUps.flame > 0;
     const blastR     = isBlast ? 80 : 0;
     let hitCount = 0;
+    let blastKillsThisShot = 0; // v7: for Flame multi-kill telemetry
 
     if (isBlast) triggerBlastRing(Engine.mouseX, Engine.mouseY, blastR + touchBonus);
 
@@ -914,7 +1552,49 @@ function executeShot() {
 
             applyPowerUp(t);
             spawnExplosion(t.x, t.y, t.primaryColor, isBlast);
-            if (isBlast) triggerShake(10, 20);
+            if (isBlast) { triggerShake(10, 20); blastKillsThisShot++; }
+
+            // ════════════════════════════════════════════════
+            // v7: CHALLENGE TELEMETRY — per-hit tracking
+            // ════════════════════════════════════════════════
+            bumpChallengeStat('lifetimeClaysSmashed', 1);
+            bumpChallengeStat('lifetimeScore', total);
+            bumpChallengeStat('sessionScore', total);
+            bumpChallengeStat('bestComboEver', Engine.comboCount, 'max');
+            bumpChallengeStat('bestNoMissStreak', ++Engine.runStats.noMissStreak, 'max');
+            if (Engine.mode === 'lives') bumpChallengeStat('bestLivesCombo', Engine.comboCount, 'max');
+
+            // Swerve tracking
+            if (t.isSwerve) {
+                Engine.runStats.swerveHitsInRow++;
+                bumpChallengeStat('lifetimeSwerveHits', 1);
+                bumpChallengeStat('bestSwerveNoMissStreak', Engine.runStats.swerveHitsInRow, 'max');
+                bumpChallengeStat('bestLateSwerveStreak',
+                    Engine.playTimeSec > 60 ? Engine.runStats.swerveHitsInRow : 0, 'max');
+            } else {
+                Engine.runStats.swerveHitsInRow = 0;
+            }
+
+            // Position-based tracking (left/right/upper half, danger zone, boundary margin)
+            if (t.x < VIRTUAL_WIDTH / 2) bumpChallengeStat('lifetimeLeftHalfHits', 1);
+            else                          bumpChallengeStat('lifetimeRightHalfHits', 1);
+            if (t.y < VIRTUAL_HEIGHT / 2) bumpChallengeStat('lifetimeUpperHalfHits', 1);
+            if (t.y >= DANGER_ZONE_Y)      bumpChallengeStat('lifetimeDangerZoneHits', 1);
+            if (t.x <= SPAWN_MARGIN + 8 || t.x >= VIRTUAL_WIDTH - SPAWN_MARGIN - 8) {
+                bumpChallengeStat('lifetimeBoundaryMarginHits', 1);
+            }
+
+            // Speed / spin tracking
+            const speedMag = Math.hypot(t.speedX, t.speedY);
+            if (speedMag >= getProfile().speedMax * 0.92) bumpChallengeStat('lifetimeMaxSpeedHits', 1);
+            if (Math.abs(t.spinSpeed) >= getProfile().spinMax * 0.85) bumpChallengeStat('lifetimeHighSpinHits', 1);
+
+            // Quick reflex — hit within 0.5s (30 ticks) of spawn
+            if (t.swerveAge <= 30) bumpChallengeStat('lifetimeQuickHits', 1);
+
+            // Accuracy-streak tracking
+            Engine.runStats.consecHitsAllSuccess++;
+            bumpChallengeStat('bestConsecHitsAllSuccess', Engine.runStats.consecHitsAllSuccess, 'max');
 
             Engine.targets.splice(i, 1);
             hitCount++;
@@ -922,10 +1602,18 @@ function executeShot() {
         }
     }
 
+    // v7: Flame multi-kill telemetry (after the loop, once we know the total)
+    if (isBlast && blastKillsThisShot > 0) {
+        bumpChallengeStat('bestFlameMultiKill', blastKillsThisShot, 'max');
+    }
+
     // ── v3: missed shot → break combo ──────────────────────
     if (hitCount === 0) {
         Engine.comboCount = 0;
         refreshComboDisplay();
+        Engine.runStats.noMissStreak = 0;
+        Engine.runStats.consecHitsAllSuccess = 0;
+        Engine.runStats.swerveHitsInRow = 0;
     }
 }
 
@@ -934,8 +1622,13 @@ function applyPowerUp(t) {
     if (t.type === 'normal' || t.type === 'swerve') return;
     playSound('powerup');
 
+    // v7: telemetry — power-up variety + medic-at-one-life
+    Engine.runStats.powerUpsUsedTypes.add(t.type);
+    bumpChallengeStat('bestPowerUpTypesPerMatch', Engine.runStats.powerUpsUsedTypes.size, 'max');
+
     switch(t.type) {
         case 'medic':
+            if (Engine.lives === 1) bumpChallengeStat('lifetimeMedicAtOneLife', 1);
             if (Engine.lives < MAX_LIVES) {
                 Engine.lives++;
                 refreshLivesDisplay();
@@ -950,6 +1643,8 @@ function applyPowerUp(t) {
         case 'cryo':
             Engine.powerUps.cryo = 300;
             Engine.currentGravity = BASE_GRAVITY * 0.5;
+            bumpChallengeStat('lifetimeCryoTriggers', 1);
+            Engine.runStats.cryoHitsThisWindow = 0;
             break;
         case 'multiplier':
             Engine.powerUps.multiplier = 360;
@@ -961,6 +1656,9 @@ function applyPowerUp(t) {
             break;
         case 'frenzy':
             Engine.powerUps.frenzy = 240;
+            if (Engine.mode === 'timed' && Engine.gameTimer >= (parseInt(DOM.timedDurationSelect.value, 10) - 30)) {
+                bumpChallengeStat('lifetimeEarlyFrenzy', 1);
+            }
             break;
     }
     Engine.floatingTexts.push(new FloatingText(t.x, t.y - 40,
@@ -990,8 +1688,14 @@ function activateBankedPack(key) {
 
     const cx = VIRTUAL_WIDTH / 2, cy = VIRTUAL_HEIGHT / 2;
 
+    // v7: telemetry — sidebar pack-type variety this match
+    Engine.runStats.powerUpsUsedTypes.add(key);
+    Engine.runStats.powerUpsUsedCount++;
+    bumpChallengeStat('bestPowerUpTypesPerMatch', Engine.runStats.powerUpsUsedTypes.size, 'max');
+
     switch (key) {
         case 'medicClay':
+            if (Engine.lives === 1) bumpChallengeStat('lifetimeMedicAtOneLife', 1);
             if (Engine.lives < MAX_LIVES) {
                 Engine.lives++;
                 refreshLivesDisplay();
@@ -1009,9 +1713,11 @@ function activateBankedPack(key) {
         case 'cryoFreeze':
             Engine.powerUps.cryo = 300;
             Engine.currentGravity = BASE_GRAVITY * 0.5;
+            bumpChallengeStat('lifetimeCryoTriggers', 1);
             Engine.floatingTexts.push(new FloatingText(cx, cy - 40, 'CRYO FREEZE ACTIVE!', def.color, 1.3));
             break;
         case 'multiplier':
+            if (Engine.powerUps.multiplier > 0) bumpChallengeStat('lifetimeMultiplierStacks', 1);
             Engine.powerUps.multiplier = 360;
             Engine.activeMultiplier = 2;
             Engine.floatingTexts.push(new FloatingText(cx, cy - 40, 'MULTIPLIER ACTIVE!', def.color, 1.3));
@@ -1022,10 +1728,15 @@ function activateBankedPack(key) {
             Engine.floatingTexts.push(new FloatingText(cx, cy - 40, 'FLAME ROUNDS ACTIVE!', def.color, 1.3));
             break;
         case 'frenzy':
+            if (Engine.powerUps.frenzy > 0) bumpChallengeStat('lifetimeFrenzyStacks', 1);
             Engine.powerUps.frenzy = 240;
             Engine.floatingTexts.push(new FloatingText(cx, cy - 40, 'FRENZY ACTIVE!', def.color, 1.3));
             break;
     }
+
+    // v7: Resourceful — banked inventory fully emptied during this activation
+    const totalLeft = PACK_KEYS.reduce((sum, k) => sum + (Meta.packs[k] || 0), 0);
+    if (totalLeft === 0) bumpChallengeStat('lifetimeInventoryEmptied', 1);
 
     refreshSidebarUI();
 
@@ -1379,9 +2090,13 @@ function physicsStep() {
                     Engine.floatingTexts.push(new FloatingText(
                         Math.min(Math.max(t.x, 60), VIRTUAL_WIDTH - 60),
                         VIRTUAL_HEIGHT - 50, 'SAVED!', '#a78bfa'));
+                    // v7: telemetry — safety net absorbed a drop
+                    bumpChallengeStat('lifetimeSafetyNetSaves', 1);
+                    if (Engine.comboCount > 10) bumpChallengeStat('lifetimeSafetyNetComboSave', 1);
                 } else {
                     Engine.comboCount = 0;
                     refreshComboDisplay();
+                    Engine.runStats.zeroDropStreakActive = false; // v7: breaks "no drop" challenges
 
                     Engine.lives--;
                     refreshLivesDisplay();
@@ -1486,6 +2201,60 @@ function startGame(mode) {
     Engine.blastRing        = { active: false, x: 0, y: 0, radius: 0, alpha: 0 };
     Engine.warningBlink     = 0;
     for (const k in Engine.powerUps) Engine.powerUps[k] = 0;
+
+    // v7: reset per-run challenge telemetry
+    Engine.runStats = {
+        matchesPlayedLives:   Engine.runStats.matchesPlayedLives,
+        matchesPlayedTimed:   Engine.runStats.matchesPlayedTimed,
+        normalClaysHit:       0,
+        swerveHitsInRow:      0,
+        swerveHitsTotal:      0,
+        swerveHitsNoMissRun:  0,
+        noMissStreak:         0,
+        flameMultiKillBest:   0,
+        cryoHitsThisWindow:   0,
+        cryoNoMissWindow:     true,
+        powerUpsUsedTypes:    new Set(),
+        powerUpsUsedCount:    0,
+        livesLostEarly:       false,
+        wasAtOneLifeEarly:    false,
+        leftHalfHits:         0,
+        rightHalfHits:        0,
+        upperHalfHits:        0,
+        apexHitsInRow:        0,
+        highSpinHits:         0,
+        maxSpeedHits:         0,
+        consecHitsAllSuccess: 0,
+        firstTargetSkipped:   false,
+        firstTargetSeen:      false,
+        cleanSheetScore:      0,
+        cleanSheetBroken:     false,
+        safetyNetSaves:       0,
+        medicUsedAtOneLife:   false,
+        frenzyWindowScore:    0,
+        frenzyWaveClearAll:   true,
+        gamepadUsed:          !!getActivePad(),
+        gamepadNonDefault:    settings.padPreset !== 'default',
+        screenShakeCount:     0,
+        edgeHits:             [],
+        simultaneousKills:    0,
+        dangerZoneHits:       0,
+        boundaryMarginHits:   0,
+        multiplierScoreWindow:0,
+        zeroDropStreakActive: true,
+        matchStartTime:       Date.now(),
+    };
+    bumpChallengeStat('lifetimeMatchesAnyStarted', 1);
+    if (mode === 'lives') bumpChallengeStat('lifetimeMatchesLives', 1);
+    if (settings.padPreset !== 'default' && getActivePad()) {
+        bumpChallengeStat('lifetimeNonDefaultPadMatch', 1);
+    }
+    bumpChallengeStat('lifetimeMatchesWithAudio', audioInitialized ? 1 : 0, 'max');
+    // v7: Vault Raider — claimed the vault within the last 30s, then started a match
+    if (window._vaultJustClaimedAt && (Date.now() - window._vaultJustClaimedAt) < 30000) {
+        bumpChallengeStat('lifetimeVaultThenMatch', 1);
+        window._vaultJustClaimedAt = null;
+    }
 
     DOM.scoreVal.textContent = '0';
     refreshLivesDisplay();
@@ -1606,6 +2375,42 @@ function gameOver() {
     DOM.statAccuracy.textContent  = Engine.shotsFired > 0 ? accuracy + '%' : '—';
     DOM.statPeakCombo.textContent = Engine.peakCombo > 1 ? 'x' + Engine.peakCombo : '—';
     DOM.statShots.textContent     = Engine.shotsFired;
+
+    // ════════════════════════════════════════════════════════
+    // v7: CHALLENGE TELEMETRY — match-end aggregates
+    // ════════════════════════════════════════════════════════
+    const durationSec = Math.round((Date.now() - (Engine.runStats.matchStartTime || Date.now())) / 1000);
+    bumpChallengeStat('bestMatchDurationSec', Engine.playTimeSec, 'max');
+    bumpChallengeStat('bestAccuracyMatch', accuracy, 'max');
+    bumpChallengeStat('bestSingleMatchScore', Engine.score, 'max');
+
+    if (Engine.mode === 'lives') {
+        bumpChallengeStat('bestLivesScore', Engine.score, 'max');
+        if (Engine.difficulty === 'easy')   bumpChallengeStat('bestEasyLivesScore', Engine.score, 'max');
+        if (Engine.difficulty === 'normal') bumpChallengeStat('bestNormalLivesScore', Engine.score, 'max');
+        if (Engine.difficulty === 'normal' && accuracy === 100) {
+            bumpChallengeStat('bestPerfectNormalLivesScore', Engine.score, 'max');
+        }
+        if (Engine.lives === MAX_LIVES) bumpChallengeStat('lifetimeFlawlessNormalLives', 1);
+        if (Engine.runStats.zeroDropStreakActive) bumpChallengeStat('lifetimeZeroDropMatches', 1);
+    } else {
+        bumpChallengeStat('bestTimedScore', Engine.score, 'max');
+        bumpChallengeStat('lifetimeTimedScore', Engine.score);
+        bumpChallengeStat('lifetimeTimedClaysHit', Engine.shotsHit);
+        if (Engine.score >= 100 && Engine.gameTimer > 15) bumpChallengeStat('lifetimeTripleDigitBlitz', 1);
+        bumpChallengeStat('matchesPlayedTimed', 1);
+    }
+
+    if (Engine.shotsFired > 0 && Engine.shotsFired < 40) {
+        bumpChallengeStat('lifetimeLowShotMatches', 1);
+    }
+    if (Engine.shotsFired < 50 && Engine.gameTimer === 0 && Engine.mode === 'timed') {
+        bumpChallengeStat('lifetimeDisciplinedMatches', 1);
+    }
+    if (accuracy === 100 && Engine.shotsFired > 0) {
+        bumpChallengeStat('lifetimePerfectMinute', 1);
+    }
+    bumpChallengeStat('lifetimePlayTimeSec', durationSec);
 
     DOM.hudWrapper.classList.add('hidden');
     DOM.gameOverlay.classList.remove('hidden');
@@ -1819,6 +2624,10 @@ function claimDailyVault() {
     DOM.vaultChest.classList.add('vault-rocking');
     playSound('powerup');
 
+    // v7: telemetry — flag that the vault was just claimed; consumed by the
+    // next startGame() call to detect "claim then immediately play" combo
+    window._vaultJustClaimedAt = Date.now();
+
     setTimeout(() => {
         // Full-screen flare burst
         DOM.vaultFlash.classList.remove('hidden');
@@ -1906,6 +2715,7 @@ function openChangelogOverlay() {
     renderChangelog();
     DOM.gameOverlay.classList.add('hidden');
     DOM.changelogOverlay.classList.remove('hidden');
+    bumpChallengeStat('lifetimeChangelogOpened', 1);
 }
 
 function closeChangelogOverlay(markSeen) {
@@ -2058,6 +2868,7 @@ if (_playAgainBtn) {
         const lbl = document.getElementById('sensitivityLabel');
         if (lbl) lbl.textContent = settings.padSensitivity;
         saveSettings();
+        bumpChallengeStat('lifetimeSensitivityChanged', 1);
     });
 
     const dz = document.getElementById('deadzoneSlider');
@@ -2066,6 +2877,7 @@ if (_playAgainBtn) {
         const lbl = document.getElementById('deadzoneLabel');
         if (lbl) lbl.textContent = settings.padDeadzone + '%';
         saveSettings();
+        bumpChallengeStat('lifetimeSensitivityChanged', 1);
     });
 
     const accel = document.getElementById('aimAccelSlider');
@@ -2149,3 +2961,35 @@ updateVaultButtonUI();
 if (canClaimVault()) {
     openVaultOverlay();
 }
+
+// ════════════════════════════════════════════════════════════
+// ─── v7: EVENT WIRING — Challenges System ────────────────────
+// ════════════════════════════════════════════════════════════
+
+// Main menu Challenges button
+if (DOM.challengesButton) {
+    DOM.challengesButton.addEventListener('click', () => openChallengesOverlay(false));
+}
+
+// Pause menu Challenges button — opens overlay without ending the run
+if (DOM.pauseChallengesButton) {
+    DOM.pauseChallengesButton.addEventListener('click', () => openChallengesOverlay(true));
+}
+
+// Close button returns to whichever screen opened it (main menu or pause menu)
+if (DOM.closeChallengesButton) {
+    DOM.closeChallengesButton.addEventListener('click', closeChallengesOverlay);
+}
+
+// Daily / Weekly tab switching
+DOM.challengeTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => setActiveChallengeTab(btn.dataset.challengeTab));
+});
+
+// Reroll + Claim buttons (event delegation on the grid container)
+if (DOM.challengesGrid) {
+    DOM.challengesGrid.addEventListener('click', handleChallengesGridClick);
+}
+
+// Initial notification dot state on boot
+updateChallengesNotifDots();
