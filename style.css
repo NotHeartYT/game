@@ -687,3 +687,255 @@ input[type="range"]::-moz-range-thumb {
     letter-spacing: 0.05em;
     margin-top: 2px;
 }
+
+/* ════════════════════════════════════════════════════════════
+   v7 ADDITIONS — Mode Badge + Reward Animation
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Mode badge (Both / Lives / Timed) ─────────────────────── */
+.mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 7px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    opacity: 0.85;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHALLENGE REWARD ANIMATION
+   ════════════════════════════════════════════════════════════ */
+
+/* Overlay fade */
+#rewardAnimOverlay {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+#rewardAnimOverlay.reward-overlay-in { opacity: 1; }
+
+/* Panel */
+.reward-anim-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    max-width: 420px;
+    width: 100%;
+    padding: 1.5rem 1.25rem;
+    background: linear-gradient(145deg, rgba(15,23,42,0.98), rgba(30,41,59,0.95));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1.5rem;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: panelSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes panelSlideUp {
+    from { transform: translateY(32px) scale(0.92); opacity: 0; }
+    to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* Header */
+.reward-anim-header { text-align: center; }
+.reward-trophy-ring {
+    font-size: 3rem;
+    animation: trophySpin 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+@keyframes trophySpin {
+    from { transform: scale(0) rotate(-45deg); }
+    to   { transform: scale(1) rotate(0deg);   }
+}
+.reward-anim-title {
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #34d399;
+    margin-bottom: 0.2rem;
+}
+.reward-anim-challenge-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 0.1rem;
+}
+
+/* Mystery box */
+.reward-box-wrapper {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    perspective: 400px;
+    cursor: default;
+    flex-shrink: 0;
+}
+.reward-box-body {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 60px;
+    background: linear-gradient(135deg, #1e3a5f, #0f2040);
+    border: 2px solid rgba(56,189,248,0.5);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 18px rgba(56,189,248,0.3);
+}
+.reward-box-label {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: rgba(56,189,248,0.6);
+}
+.reward-box-lid {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 78px;
+    height: 22px;
+    transform-origin: center bottom;
+    transition: transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+}
+.reward-box-lid-face {
+    width: 78px;
+    height: 22px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: 2px solid rgba(96,165,250,0.7);
+    border-radius: 0.4rem 0.4rem 0 0;
+}
+.reward-box-lid-top {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 86px;
+    height: 14px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: 2px solid rgba(96,165,250,0.9);
+    border-radius: 0.3rem;
+}
+/* Open state */
+.reward-box-wrapper.box-open .reward-box-lid {
+    transform: translateX(-50%) rotateX(-130deg);
+}
+/* Burst sparkles */
+.reward-burst {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+.burst-star {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fbbf24, #f97316);
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+    transition: none;
+}
+.box-open .burst-star {
+    animation: starBurst 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--delay) both;
+}
+@keyframes starBurst {
+    0%  { opacity: 1; transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0); }
+    80% { opacity: 0.6; }
+    100%{ opacity: 0; transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-52px); }
+}
+
+/* Pack cards row */
+.reward-packs-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    max-width: 360px;
+    width: 100%;
+}
+.reward-pack-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(15,23,42,0.85);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0.85rem;
+    min-width: 90px;
+    max-width: 130px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px) scale(0.85);
+    animation: packReveal 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    box-shadow: 0 0 18px var(--pack-glow, rgba(100,116,139,0.3));
+    border-color: color-mix(in srgb, var(--pack-color, #64748b) 25%, transparent);
+}
+@keyframes packReveal {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.reward-pack-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    animation: iconBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes iconBounce {
+    0%  { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100%{ transform: scale(1); }
+}
+.reward-pack-name {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+}
+.reward-pack-desc {
+    font-size: 0.58rem;
+    color: #64748b;
+    line-height: 1.3;
+}
+
+/* Count text + continue button */
+.reward-count-text {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.reward-continue-btn {
+    background: linear-gradient(90deg, #10b981, #34d399);
+    color: #022c22;
+    font-weight: 900;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.6rem 2rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 18px rgba(16,185,129,0.45);
+    animation: claimPulse 2s ease-in-out infinite;
+}
+.reward-continue-btn:hover { transform: scale(1.04); filter: brightness(1.1); }
+.reward-continue-btn:active { transform: scale(0.97); }
+
