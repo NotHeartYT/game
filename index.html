@@ -7,14 +7,14 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Trap Shooting Pro</title>
-    <link rel="icon" type="image/png" href="favicon.png?v=5.1">
+    <link rel="icon" type="image/png" href="favicon.png?v=5.2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.2">
 </head>
 <body id="bodyTheme" class="theme-dark flex flex-col items-center justify-center min-h-screen p-2 md:p-4 select-none transition-colors duration-300 overflow-hidden touch-none">
 
@@ -568,8 +568,12 @@
         <!-- ── STEAM-STYLE TOAST NOTIFICATION CONTAINER ─── -->
         <div id="toastContainer" class="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    </div><!-- /.game-container -->
+        <!-- ── CHALLENGE REWARD ANIMATION OVERLAY ────────── -->
+        <div id="rewardAnimOverlay" class="hidden absolute inset-0 z-50 flex items-center justify-center p-4"
+             style="background: rgba(2,6,23,0.92); backdrop-filter: blur(16px);">
+            <!-- Content injected by JS showChallengeRewardAnimation() -->
+        </div>
 
-    <script src="script.js?v=5.1"></script>
+    <script src="script.js?v=5.2"></script>
 </body>
 </html>
